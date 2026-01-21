@@ -8,8 +8,8 @@ endpoints:
       iconURL: "/images/tulip.svg"
       models:
         default:
-          - "terpedia/unified"
           - "terpedia/kb"
+          - "terpedia/unified"
           - "terpedia/pubmed"
           - "terpedia/rdkit"
         fetch: false
