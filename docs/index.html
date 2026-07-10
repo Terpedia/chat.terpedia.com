@@ -473,7 +473,7 @@
   </div>
 
   <script>
-    window.FORMUL8_CONFIG = window.FORMUL8_CONFIG || {
+    window.TERPEDIA_CHAT_CONFIG = window.TERPEDIA_CHAT_CONFIG || {
       apiBaseUrl: 'https://api.chat.terpedia.com',
       plan: 'all_access'
     };
@@ -511,7 +511,7 @@
       };
 
       const params = new URLSearchParams(window.location.search);
-      const configuredApi = params.get('api') || localStorage.getItem('terpedia_chat_api_base') || window.FORMUL8_CONFIG.apiBaseUrl;
+      const configuredApi = params.get('api') || localStorage.getItem('terpedia_chat_api_base') || window.TERPEDIA_CHAT_CONFIG.apiBaseUrl;
       const sessionKey = localStorage.getItem('terpedia_chat_user_id') || 'terpedia:' + crypto.randomUUID();
       localStorage.setItem('terpedia_chat_user_id', sessionKey);
       els.apiBase.value = normalizeBase(configuredApi);
@@ -570,7 +570,7 @@
         const body = {
           message,
           user_id: sessionKey,
-          plan: window.FORMUL8_CONFIG.plan || 'all_access',
+          plan: window.TERPEDIA_CHAT_CONFIG.plan || 'all_access',
           username: 'terpedia_guest',
           useRag: els.useRag.checked,
           current_datetime: new Date().toISOString(),
