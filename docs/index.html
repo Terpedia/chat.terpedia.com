@@ -362,6 +362,9 @@
     .message-content :not(pre) > code { background: var(--surface-strong); border-radius: 4px; padding: 2px 4px; }
     .message-content ul { padding-left: 20px; }
     .message-meta { color: var(--muted); font-size: 11px; margin-top: 8px; }
+    .message-sources { display: flex; flex-wrap: wrap; gap: 6px 10px; margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--line); }
+    .message-source { color: var(--brand-strong); font-size: 11px; text-decoration: none; }
+    .message-source:hover { text-decoration: underline; }
     .user .message-inner { justify-content: flex-end; }
     .user .avatar { display: none; }
     .user .message-content {
@@ -851,6 +854,9 @@
         return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
       }
       function plainText(value) { return String(value || '').replace(/[#*`_>\[\]()]/g, '').replace(/\s+/g, ' ').trim(); }
+      function safeExternalUrl(value) {
+        try { const url = new URL(String(value || '')); return /^https?:$/.test(url.protocol) ? url.href : ''; } catch (error) { return ''; }
+      }
 
       function renderMarkdown(value) {
         let safe = escapeHtml(value || '');
@@ -938,8 +944,16 @@
         const visual = agentVisual(message.agentId);
         const avatar = message.role === 'user' ? '' : '<div class="avatar" data-agent="' + escapeHtml(message.agentId || 'f8_agent') + '" style="--agent-color:' + visual.color + '" title="' + escapeHtml(agentNames[message.agentId] || message.meta || 'Terpedia') + '"><i data-lucide="' + visual.icon + '"></i></div>';
         const meta = message.meta ? '<div class="message-meta">' + escapeHtml(message.meta) + '</div>' : '';
+        const sources = renderMessageSources(message.citations || []);
         return '<article class="message-row ' + escapeHtml(message.role) + (message.error ? ' error-message' : '') + '"><div class="message-inner">' + avatar +
-          '<div class="message-content">' + attachmentsHtml + renderMarkdown(message.text) + meta + '</div></div></article>';
+          '<div class="message-content">' + attachmentsHtml + renderMarkdown(message.text) + sources + meta + '</div></div></article>';
+      }
+      function renderMessageSources(items) {
+        const valid = items.map(function (item) { return { id: item.id, title: item.title, url: safeExternalUrl(item.url) }; }).filter(function (item) { return item.url; });
+        if (!valid.length) return '';
+        return '<div class="message-sources" aria-label="Sources">' + valid.map(function (item) {
+          return '<a class="message-source" href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener noreferrer">[' + escapeHtml(item.id || 'Source') + '] ' + escapeHtml(item.title || 'Source') + '</a>';
+        }).join('') + '</div>';
       }
       function renderMessageAttachments(items) {
         if (!items.length) return '';
@@ -975,10 +989,10 @@
         persist();
         refreshHeader();
       }
-      function addMessage(role, text, meta, messageAttachments, isError, agentId) {
+      function addMessage(role, text, meta, messageAttachments, isError, agentId, citations) {
         const conversation = activeConversation();
         const now = new Date().toISOString();
-        conversation.messages.push({ id: crypto.randomUUID(), role: role, text: text, meta: meta || '', agentId: agentId || '', attachments: messageAttachments || [], error: Boolean(isError), createdAt: now });
+        conversation.messages.push({ id: crypto.randomUUID(), role: role, text: text, meta: meta || '', agentId: agentId || '', attachments: messageAttachments || [], citations: citations || [], error: Boolean(isError), createdAt: now });
         if (role === 'user' && conversation.title === 'New chat') conversation.title = (plainText(text) || 'Attachment review').slice(0, 44);
         conversation.updatedAt = now;
         persist();
@@ -1160,7 +1174,7 @@
           (payload.participant_responses || []).forEach(function (participant) {
             addMessage('assistant', participant.response || '', participant.name || agentNames[participant.agent] || participant.agent, [], false, participant.agent);
           });
-          addMessage('assistant', payload.response || 'No response text returned.', summarizePayload(payload), [], false, payload.panel ? 'panel_moderator' : payload.agent);
+          addMessage('assistant', payload.response || 'No response text returned.', summarizePayload(payload), [], false, payload.panel ? 'panel_moderator' : payload.agent, payload.rag?.citations || []);
           setBusy(false, false);
           setStatus('Ready.', 'Last response returned from ' + (payload.agent_display_name || payload.agent || 'the backend') + '.');
         } catch (error) {
