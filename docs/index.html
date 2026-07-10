@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Terpedia Chat</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f6f8f7;
+      --panel: #ffffff;
+      --panel-2: #eef4f1;
+      --ink: #14211c;
+      --muted: #63716b;
+      --line: #dce5e0;
+      --brand: #0f8f65;
+      --brand-2: #235eb8;
+      --warn: #a14916;
+      --shadow: 0 16px 50px rgba(28, 41, 35, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+    }
+
+    button, input, select, textarea {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 320px minmax(0, 1fr);
+    }
+
+    .sidebar {
+      border-right: 1px solid var(--line);
+      background: #fbfcfb;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .brand img {
+      width: 44px;
+      height: 44px;
+      flex: 0 0 auto;
+    }
+
+    .brand h1 {
+      font-size: 20px;
+      margin: 0;
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    .brand p {
+      margin: 3px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .field {
+      display: grid;
+      gap: 7px;
+    }
+
+    .field label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    select, input {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--ink);
+      padding: 10px 11px;
+      min-height: 42px;
+      outline: none;
+    }
+
+    select:focus, input:focus, textarea:focus {
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px rgba(15, 143, 101, 0.15);
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 11px;
+      background: var(--panel);
+    }
+
+    .toggle-row span {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .toggle-row input {
+      width: 18px;
+      height: 18px;
+      min-height: 18px;
+      accent-color: var(--brand);
+    }
+
+    .status {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: var(--panel-2);
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .status strong {
+      color: var(--ink);
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .main {
+      min-width: 0;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      height: 100vh;
+    }
+
+    .topbar {
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(10px);
+      padding: 15px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .topbar h2 {
+      margin: 0;
+      font-size: 17px;
+      line-height: 1.25;
+    }
+
+    .topbar p {
+      margin: 3px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .pill {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 7px 10px;
+      color: var(--muted);
+      background: var(--panel);
+      font-size: 12px;
+      white-space: nowrap;
+      max-width: 46vw;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .messages {
+      overflow: auto;
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      scroll-behavior: smooth;
+    }
+
+    .message {
+      max-width: min(820px, 100%);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px 15px;
+      background: var(--panel);
+      box-shadow: 0 4px 18px rgba(20, 33, 28, 0.05);
+      line-height: 1.55;
+      overflow-wrap: anywhere;
+    }
+
+    .message.user {
+      align-self: flex-end;
+      background: #e8f7f0;
+      border-color: #bfe5d5;
+    }
+
+    .message.system {
+      align-self: center;
+      max-width: 760px;
+      background: #f7faf9;
+      box-shadow: none;
+    }
+
+    .message.error {
+      border-color: #edc7aa;
+      background: #fff7f1;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .message p {
+      margin: 0 0 10px;
+    }
+
+    .message p:last-child {
+      margin-bottom: 0;
+    }
+
+    .message pre {
+      white-space: pre-wrap;
+      margin: 0;
+      font: inherit;
+    }
+
+    .composer {
+      border-top: 1px solid var(--line);
+      background: #fbfcfb;
+      padding: 16px 22px 18px;
+    }
+
+    .composer form {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: end;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 58px;
+      max-height: 180px;
+      resize: vertical;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      color: var(--ink);
+      background: var(--panel);
+      outline: none;
+      line-height: 1.45;
+    }
+
+    .send {
+      min-height: 58px;
+      min-width: 92px;
+      border-radius: 8px;
+      background: var(--brand);
+      color: white;
+      font-weight: 800;
+      padding: 0 18px;
+    }
+
+    .send:disabled {
+      opacity: 0.55;
+      cursor: progress;
+    }
+
+    .secondary {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--ink);
+      border-radius: 8px;
+      min-height: 38px;
+      padding: 0 12px;
+      font-weight: 700;
+    }
+
+    .footnote {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    @media (max-width: 860px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+        padding: 14px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+
+      .brand, .status {
+        grid-column: 1 / -1;
+      }
+
+      .main {
+        height: auto;
+        min-height: 70vh;
+      }
+
+      .topbar {
+        padding: 14px;
+        align-items: flex-start;
+      }
+
+      .pill {
+        max-width: 40vw;
+      }
+
+      .messages {
+        padding: 14px;
+        min-height: 48vh;
+      }
+
+      .composer {
+        padding: 14px;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .sidebar {
+        grid-template-columns: 1fr;
+      }
+
+      .topbar {
+        display: grid;
+      }
+
+      .pill {
+        max-width: 100%;
+        width: 100%;
+      }
+
+      .composer form {
+        grid-template-columns: 1fr;
+      }
+
+      .send {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <img src="assets/tulip.svg" alt="" aria-hidden="true">
+        <div>
+          <h1>Terpedia Chat</h1>
+          <p>Formul8 agents and RAG on Terpedia.</p>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="agent">Agent</label>
+        <select id="agent">
+          <option value="">Auto route</option>
+          <option value="f8_agent">Formul8 Multi-Agent</option>
+          <option value="compliance">Compliance Agent</option>
+          <option value="formulation">Formulation Agent</option>
+          <option value="operations">Operations Agent</option>
+          <option value="marketing">Marketing Agent</option>
+          <option value="sourcing">Sourcing Agent</option>
+          <option value="patent">Patent Agent</option>
+          <option value="spectra">Spectra Agent</option>
+          <option value="customer_success">Customer Success Agent</option>
+          <option value="mcr">MCR Agent</option>
+          <option value="ad">Ad Agent</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="model">Model</label>
+        <select id="model">
+          <option value="">Backend default</option>
+          <option value="openai/gpt-5.2-chat">GPT-5.2 Chat</option>
+          <option value="openai/gpt-5.1-chat">GPT-5 Chat</option>
+          <option value="openai/gpt-4o">GPT-4o</option>
+          <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
+          <option value="google/gemini-3-pro-preview">Gemini 3 Pro Preview</option>
+          <option value="meta-llama/llama-3.1-70b-instruct">Llama 3.1 70B</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="api-base">Backend API</label>
+        <input id="api-base" type="url" autocomplete="off" spellcheck="false">
+      </div>
+
+      <label class="toggle-row">
+        <span>Use RAG</span>
+        <input id="use-rag" type="checkbox" checked>
+      </label>
+
+      <div class="status" id="status">
+        <strong>Ready</strong>
+        Ask a cannabis operations, compliance, formulation, science, or business question.
+      </div>
+
+      <button class="secondary" id="clear" type="button">Clear Chat</button>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h2 id="active-title">Auto-routed Formul8 chat</h2>
+          <p id="active-subtitle">The backend selects the best agent unless you choose one.</p>
+        </div>
+        <div class="pill" id="api-pill">api.chat.terpedia.com</div>
+      </header>
+
+      <section class="messages" id="messages" aria-live="polite">
+        <article class="message system">
+          <div class="meta">System</div>
+          <p>This static GitHub Pages client talks to the Formul8 multiagent backend. Agent routing, RAG, usage metadata, and model calls stay server-side.</p>
+        </article>
+      </section>
+
+      <section class="composer">
+        <form id="chat-form">
+          <textarea id="message" placeholder="Ask about regulations, facility operations, formulations, sourcing, marketing, patents, testing, or MCRs..." required></textarea>
+          <button class="send" id="send" type="submit">Send</button>
+        </form>
+        <div class="footnote">
+          <span id="hint">Shift+Enter for a new line.</span>
+          <span>Guest requests are subject to backend rate limits.</span>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    window.FORMUL8_CONFIG = window.FORMUL8_CONFIG || {
+      apiBaseUrl: 'https://api.chat.terpedia.com',
+      plan: 'all_access'
+    };
+  </script>
+  <script>
+    (function() {
+      const agentNames = {
+        f8_agent: 'Formul8 Multi-Agent',
+        compliance: 'Compliance Agent',
+        formulation: 'Formulation Agent',
+        operations: 'Operations Agent',
+        marketing: 'Marketing Agent',
+        sourcing: 'Sourcing Agent',
+        patent: 'Patent Agent',
+        spectra: 'Spectra Agent',
+        customer_success: 'Customer Success Agent',
+        mcr: 'MCR Agent',
+        ad: 'Ad Agent'
+      };
+
+      const els = {
+        agent: document.getElementById('agent'),
+        model: document.getElementById('model'),
+        apiBase: document.getElementById('api-base'),
+        useRag: document.getElementById('use-rag'),
+        status: document.getElementById('status'),
+        clear: document.getElementById('clear'),
+        form: document.getElementById('chat-form'),
+        message: document.getElementById('message'),
+        send: document.getElementById('send'),
+        messages: document.getElementById('messages'),
+        activeTitle: document.getElementById('active-title'),
+        activeSubtitle: document.getElementById('active-subtitle'),
+        apiPill: document.getElementById('api-pill')
+      };
+
+      const params = new URLSearchParams(window.location.search);
+      const configuredApi = params.get('api') || localStorage.getItem('formul8_api_base') || window.FORMUL8_CONFIG.apiBaseUrl;
+      const sessionKey = localStorage.getItem('formul8_user_id') || 'terpedia:' + crypto.randomUUID();
+      localStorage.setItem('formul8_user_id', sessionKey);
+      els.apiBase.value = normalizeBase(configuredApi);
+      refreshHeader();
+
+      function normalizeBase(value) {
+        return String(value || '').trim().replace(/\/+$/, '');
+      }
+
+      function setStatus(title, text, isError) {
+        els.status.innerHTML = '<strong>' + escapeHtml(title) + '</strong>' + escapeHtml(text);
+        els.status.style.borderColor = isError ? '#edc7aa' : '';
+        els.status.style.background = isError ? '#fff7f1' : '';
+      }
+
+      function escapeHtml(value) {
+        return String(value || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      }
+
+      function renderText(text) {
+        const safe = escapeHtml(text || '');
+        return safe
+          .split(/\n{2,}/)
+          .map(part => '<p>' + part.replace(/\n/g, '<br>') + '</p>')
+          .join('');
+      }
+
+      function addMessage(role, text, meta, extraClass) {
+        const article = document.createElement('article');
+        article.className = 'message ' + role + (extraClass ? ' ' + extraClass : '');
+        const metaText = meta ? '<div class="meta">' + escapeHtml(meta) + '</div>' : '';
+        article.innerHTML = metaText + renderText(text);
+        els.messages.appendChild(article);
+        els.messages.scrollTop = els.messages.scrollHeight;
+        return article;
+      }
+
+      function refreshHeader() {
+        const selected = els.agent.value;
+        const apiBase = normalizeBase(els.apiBase.value);
+        els.activeTitle.textContent = selected ? agentNames[selected] || selected : 'Auto-routed Formul8 chat';
+        els.activeSubtitle.textContent = selected
+          ? 'Requests are pinned to this agent while RAG and backend policy remain active.'
+          : 'The backend selects the best agent unless you choose one.';
+        els.apiPill.textContent = apiBase.replace(/^https?:\/\//, '') || 'No API configured';
+      }
+
+      function requestBody(message) {
+        const agent = els.agent.value;
+        const model = els.model.value;
+        const body = {
+          message,
+          user_id: sessionKey,
+          plan: window.FORMUL8_CONFIG.plan || 'all_access',
+          username: 'terpedia_guest',
+          useRag: els.useRag.checked,
+          current_datetime: new Date().toISOString(),
+          context: {
+            frontend: 'chat.terpedia.com',
+            hosting: 'github_pages'
+          }
+        };
+        if (agent) body.agent = agent;
+        if (model) body.model = model;
+        return body;
+      }
+
+      async function sendMessage(message) {
+        const apiBase = normalizeBase(els.apiBase.value);
+        if (!apiBase) throw new Error('Set a backend API URL first.');
+        localStorage.setItem('formul8_api_base', apiBase);
+        refreshHeader();
+
+        const response = await fetch(apiBase + '/api/chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Client': 'chat.terpedia.com'
+          },
+          body: JSON.stringify(requestBody(message))
+        });
+
+        const text = await response.text();
+        let payload;
+        try {
+          payload = text ? JSON.parse(text) : {};
+        } catch (error) {
+          throw new Error('Backend returned non-JSON response: ' + text.slice(0, 180));
+        }
+
+        if (!response.ok || payload.success === false) {
+          const message = payload.message || payload.error || response.statusText || 'Request failed';
+          const retry = payload.retryAfter ? ' Try again after ' + payload.retryAfter + ' seconds.' : '';
+          throw new Error(message + retry);
+        }
+
+        return payload;
+      }
+
+      function summarizePayload(payload) {
+        const pieces = [];
+        if (payload.agent_display_name || payload.agent) {
+          pieces.push(payload.agent_display_name || payload.agent);
+        }
+        if (payload.routing && payload.routing.source) {
+          pieces.push('routing: ' + payload.routing.source);
+        }
+        if (payload.rag && Array.isArray(payload.rag.entries)) {
+          pieces.push('RAG: ' + payload.rag.entries.length + ' entries');
+        } else if (payload.rag && payload.rag.entries) {
+          pieces.push('RAG: ' + payload.rag.entries);
+        }
+        if (payload.usage && payload.usage.total_tokens) {
+          pieces.push(payload.usage.total_tokens + ' tokens');
+        }
+        return pieces.join(' · ') || 'Assistant';
+      }
+
+      els.form.addEventListener('submit', async function(event) {
+        event.preventDefault();
+        const message = els.message.value.trim();
+        if (!message) return;
+        els.message.value = '';
+        addMessage('user', message, 'You');
+        els.send.disabled = true;
+        setStatus('Working', 'Routing to the backend agent stack...', false);
+
+        try {
+          const payload = await sendMessage(message);
+          addMessage('assistant', payload.response || 'No response text returned.', summarizePayload(payload));
+          setStatus('Ready', 'Last response returned from ' + (payload.agent_display_name || payload.agent || 'the backend') + '.', false);
+        } catch (error) {
+          addMessage('system', error.message || String(error), 'Error', 'error');
+          setStatus('Backend error', error.message || String(error), true);
+        } finally {
+          els.send.disabled = false;
+          els.message.focus();
+        }
+      });
+
+      els.message.addEventListener('keydown', function(event) {
+        if (event.key === 'Enter' && !event.shiftKey) {
+          event.preventDefault();
+          els.form.requestSubmit();
+        }
+      });
+
+      els.agent.addEventListener('change', refreshHeader);
+      els.apiBase.addEventListener('change', function() {
+        els.apiBase.value = normalizeBase(els.apiBase.value);
+        localStorage.setItem('formul8_api_base', els.apiBase.value);
+        refreshHeader();
+      });
+      els.clear.addEventListener('click', function() {
+        els.messages.innerHTML = '';
+        addMessage('system', 'New chat started. The backend keeps rate limits and any server-side memory policies.', 'System');
+      });
+    })();
+  </script>
+</body>
+</html>
