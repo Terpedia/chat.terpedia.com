@@ -747,7 +747,7 @@
       const MAX_IMAGE_BYTES = 950 * 1024;
 
       const agentNames = {
-        f8_agent: 'Terpedia Multi-Agent', compliance: 'Compliance Agent', formulation: 'Formulation Agent',
+        terpedia_agent: 'Terpedia Multi-Agent', compliance: 'Compliance Agent', formulation: 'Formulation Agent',
         operations: 'Operations Agent', marketing: 'Marketing Agent', sourcing: 'Sourcing Agent', patent: 'Patent Agent',
         spectra: 'Spectra Agent', customer_success: 'Customer Success Agent', cannabis_researcher: 'Cannabis Researcher',
         terpene_scientist: 'Terpene Scientist', coa_analyst: 'COA Analyst', cultivation_advisor: 'Cultivation Advisor',
@@ -760,7 +760,7 @@
       };
 
       const agentVisuals = {
-        f8_agent: ['bot', '#29735d'], panel_moderator: ['messages-square', '#29735d'],
+        terpedia_agent: ['bot', '#29735d'], panel_moderator: ['messages-square', '#29735d'],
         cannabis_researcher: ['book-open', '#34785f'], terpene_scientist: ['flask-conical', '#5a7f35'],
         coa_analyst: ['file-scan', '#39738c'], cultivation_advisor: ['sprout', '#4d7a3b'],
         medical_literature: ['library', '#536da8'], veterinary_cannabis: ['stethoscope', '#987044'],
@@ -942,7 +942,7 @@
       function renderMessage(message) {
         const attachmentsHtml = renderMessageAttachments(message.attachments || []);
         const visual = agentVisual(message.agentId);
-        const avatar = message.role === 'user' ? '' : '<div class="avatar" data-agent="' + escapeHtml(message.agentId || 'f8_agent') + '" style="--agent-color:' + visual.color + '" title="' + escapeHtml(agentNames[message.agentId] || message.meta || 'Terpedia') + '"><i data-lucide="' + visual.icon + '"></i></div>';
+        const avatar = message.role === 'user' ? '' : '<div class="avatar" data-agent="' + escapeHtml(message.agentId || 'terpedia_agent') + '" style="--agent-color:' + visual.color + '" title="' + escapeHtml(agentNames[message.agentId] || message.meta || 'Terpedia') + '"><i data-lucide="' + visual.icon + '"></i></div>';
         const meta = message.meta ? '<div class="message-meta">' + escapeHtml(message.meta) + '</div>' : '';
         const sources = renderMessageSources(message.citations || []);
         return '<article class="message-row ' + escapeHtml(message.role) + (message.error ? ' error-message' : '') + '"><div class="message-inner">' + avatar +
