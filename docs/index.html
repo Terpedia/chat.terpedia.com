@@ -511,9 +511,9 @@
       };
 
       const params = new URLSearchParams(window.location.search);
-      const configuredApi = params.get('api') || localStorage.getItem('formul8_api_base') || window.FORMUL8_CONFIG.apiBaseUrl;
-      const sessionKey = localStorage.getItem('formul8_user_id') || 'terpedia:' + crypto.randomUUID();
-      localStorage.setItem('formul8_user_id', sessionKey);
+      const configuredApi = params.get('api') || localStorage.getItem('terpedia_chat_api_base') || window.FORMUL8_CONFIG.apiBaseUrl;
+      const sessionKey = localStorage.getItem('terpedia_chat_user_id') || 'terpedia:' + crypto.randomUUID();
+      localStorage.setItem('terpedia_chat_user_id', sessionKey);
       els.apiBase.value = normalizeBase(configuredApi);
       refreshHeader();
 
@@ -587,7 +587,7 @@
       async function sendMessage(message) {
         const apiBase = normalizeBase(els.apiBase.value);
         if (!apiBase) throw new Error('Set a backend API URL first.');
-        localStorage.setItem('formul8_api_base', apiBase);
+        localStorage.setItem('terpedia_chat_api_base', apiBase);
         refreshHeader();
 
         const response = await fetch(apiBase + '/api/chat', {
@@ -667,7 +667,7 @@
       els.agent.addEventListener('change', refreshHeader);
       els.apiBase.addEventListener('change', function() {
         els.apiBase.value = normalizeBase(els.apiBase.value);
-        localStorage.setItem('formul8_api_base', els.apiBase.value);
+        localStorage.setItem('terpedia_chat_api_base', els.apiBase.value);
         refreshHeader();
       });
       els.clear.addEventListener('click', function() {

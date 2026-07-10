@@ -11,8 +11,8 @@ contain backend code or secrets.
   - `index.html` – Terpedia Chat client for the Formul8 `/api/chat` contract
   - `assets/tulip.svg` – Terpedia logo mark
 
-- **Backend repo** – `Terpedia/formul8-multiagent-backend` owns the copied
-  Formul8 backend, Cloud Run deployment config, agents, RAG, and secrets.
+- **Backend repo** – `Terpedia/chat-terpedia-backend` owns the copied backend,
+  Cloud Run deployment config, agents, RAG, and secrets.
 
 ## Enable GitHub Pages and custom domain
 
@@ -37,7 +37,7 @@ contain backend code or secrets.
 ## Where the backend lives
 
 - The **frontend** is static GitHub Pages.
-- The **backend** should be deployed from `Terpedia/formul8-multiagent-backend`
+- The **backend** should be deployed from `Terpedia/chat-terpedia-backend`
   to Cloud Run with scale-to-zero.
 - The intended public backend host is `https://api.chat.terpedia.com`.
 - During testing, append a Cloud Run URL with:
