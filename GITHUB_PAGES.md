@@ -1,14 +1,14 @@
 # GitHub Pages – chat.terpedia.com front end
 
 The **chat.terpedia.com** site is the static chat front end served from GitHub
-Pages in this repo. It calls the Terpedia/Formul8 backend API, but it does not
+Pages in this repo. It calls the Terpedia backend API, but it does not
 contain backend code or secrets.
 
 ## What’s in the repo
 
 - **`docs/`** – GitHub Pages site (what visitors see at chat.terpedia.com):
   - `CNAME` – custom domain `chat.terpedia.com`
-  - `index.html` – Terpedia Chat client for the Formul8 `/api/chat` contract
+  - `index.html` – Terpedia Chat client for the `/api/chat` contract
   - `assets/tulip.svg` – Terpedia logo mark
 
 - **Backend repo** – `Terpedia/chat-terpedia-backend` owns the copied backend,
@@ -40,7 +40,9 @@ contain backend code or secrets.
 - The **backend** should be deployed from `Terpedia/chat-terpedia-backend`
   to Cloud Run with scale-to-zero.
 - The intended public backend host is `https://api.chat.terpedia.com`.
-- During testing, append a Cloud Run URL with:
+- Until that DNS/custom domain mapping exists, the checked-in default points to
+  `https://chat-terpedia-backend-nanrsdlaoa-uc.a.run.app`.
+- You can still override the backend with:
 
 ```text
 https://chat.terpedia.com/?api=https://YOUR-CLOUD-RUN-URL

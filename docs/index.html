@@ -390,7 +390,7 @@
         <img src="assets/tulip.svg" alt="" aria-hidden="true">
         <div>
           <h1>Terpedia Chat</h1>
-          <p>Formul8 agents and RAG on Terpedia.</p>
+          <p>Terpedia agents and RAG.</p>
         </div>
       </div>
 
@@ -398,7 +398,7 @@
         <label for="agent">Agent</label>
         <select id="agent">
           <option value="">Auto route</option>
-          <option value="f8_agent">Formul8 Multi-Agent</option>
+          <option value="f8_agent">Terpedia Multi-Agent</option>
           <option value="compliance">Compliance Agent</option>
           <option value="formulation">Formulation Agent</option>
           <option value="operations">Operations Agent</option>
@@ -446,16 +446,16 @@
     <main class="main">
       <header class="topbar">
         <div>
-          <h2 id="active-title">Auto-routed Formul8 chat</h2>
+          <h2 id="active-title">Auto-routed Terpedia chat</h2>
           <p id="active-subtitle">The backend selects the best agent unless you choose one.</p>
         </div>
-        <div class="pill" id="api-pill">api.chat.terpedia.com</div>
+        <div class="pill" id="api-pill">Cloud Run backend</div>
       </header>
 
       <section class="messages" id="messages" aria-live="polite">
         <article class="message system">
           <div class="meta">System</div>
-          <p>This static GitHub Pages client talks to the Formul8 multiagent backend. Agent routing, RAG, usage metadata, and model calls stay server-side.</p>
+          <p>This static GitHub Pages client talks to the Terpedia multiagent backend. Agent routing, RAG, usage metadata, and model calls stay server-side.</p>
         </article>
       </section>
 
@@ -474,14 +474,14 @@
 
   <script>
     window.TERPEDIA_CHAT_CONFIG = window.TERPEDIA_CHAT_CONFIG || {
-      apiBaseUrl: 'https://api.chat.terpedia.com',
+      apiBaseUrl: 'https://chat-terpedia-backend-nanrsdlaoa-uc.a.run.app',
       plan: 'all_access'
     };
   </script>
   <script>
     (function() {
       const agentNames = {
-        f8_agent: 'Formul8 Multi-Agent',
+        f8_agent: 'Terpedia Multi-Agent',
         compliance: 'Compliance Agent',
         formulation: 'Formulation Agent',
         operations: 'Operations Agent',
@@ -557,7 +557,7 @@
       function refreshHeader() {
         const selected = els.agent.value;
         const apiBase = normalizeBase(els.apiBase.value);
-        els.activeTitle.textContent = selected ? agentNames[selected] || selected : 'Auto-routed Formul8 chat';
+        els.activeTitle.textContent = selected ? agentNames[selected] || selected : 'Auto-routed Terpedia chat';
         els.activeSubtitle.textContent = selected
           ? 'Requests are pinned to this agent while RAG and backend policy remain active.'
           : 'The backend selects the best agent unless you choose one.';
