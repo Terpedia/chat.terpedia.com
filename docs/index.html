@@ -308,6 +308,33 @@
     .connection-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--brand); }
     .connection-dot.busy { background: var(--warning); }
     .connection-dot.error { background: var(--danger); }
+    .guest-session {
+      height: 34px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: var(--canvas);
+      padding-left: 9px;
+      white-space: nowrap;
+    }
+    .guest-session[hidden] { display: none; }
+    .guest-session-label { color: var(--muted); font-size: 10px; font-weight: 700; text-transform: uppercase; }
+    .guest-countdown { min-width: 50px; font: 700 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink); }
+    .guest-countdown.ended { color: var(--danger); }
+    .join-button {
+      align-self: stretch;
+      border: 0;
+      border-left: 1px solid var(--line);
+      border-radius: 0 4px 4px 0;
+      background: var(--brand);
+      color: #fff;
+      padding: 0 11px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .join-button:hover { background: var(--brand-strong); }
 
     .transcript {
       flex: 1;
@@ -691,7 +718,14 @@
 
     @media (max-width: 600px) {
       .topbar .rag-toggle { display: none; }
-      .compact-select, .participants-button { max-width: 138px; }
+      .topbar { gap: 7px; }
+      .participants-button { width: 34px; padding: 0; justify-content: center; }
+      .participants-button span { display: none; }
+      #top-settings { display: none; }
+      .guest-session { gap: 5px; padding-left: 6px; }
+      .guest-session-label { display: none; }
+      .guest-countdown { min-width: 45px; font-size: 10px; }
+      .join-button { padding: 0 8px; }
       .participant-grid { grid-template-columns: 1fr; }
       .chat-heading span { display: none; }
       .messages { padding-top: 12px; }
@@ -734,6 +768,7 @@
         <div class="top-controls">
           <button class="participants-button" id="participants-button" type="button"><i data-lucide="users"></i><span id="participants-label">Invite agents</span></button>
           <label class="rag-toggle" title="Use retrieval-augmented generation"><input id="use-rag" type="checkbox" checked><span>RAG</span></label>
+          <div class="guest-session" id="guest-session" title="Guest time starts with your first message"><span class="guest-session-label">Guest</span><time class="guest-countdown" id="guest-countdown" datetime="PT1H">1:00:00</time><button class="join-button" id="join" type="button">Join</button></div>
           <button class="icon-button" id="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode"><i data-lucide="moon"></i></button>
           <button class="icon-button" id="top-settings" type="button" aria-label="Open settings" title="Settings"><i data-lucide="sliders-horizontal"></i></button>
           <span class="connection-dot" id="connection-dot" title="Ready"></span>
@@ -852,6 +887,7 @@
       const USER_KEY = 'terpedia_chat_user_id';
       const THEME_KEY = 'terpedia_chat_theme';
       const AUTH_KEY = 'terpedia_chat_auth_token';
+      const GUEST_SESSION_END_KEY = 'terpedia_guest_session_ends_at';
       const MAX_IMAGES = 3;
       const MAX_DOCUMENTS = 3;
       const MAX_PDF_BYTES = 15 * 1024 * 1024;
@@ -896,6 +932,7 @@
         'camera-input', 'product-photo-input', 'coa-input', 'pdf-input',
         'attachment-tray', 'settings-dialog', 'open-settings', 'top-settings', 'close-settings', 'open-sidebar', 'close-sidebar',
         'sidebar-overlay', 'connection-dot', 'theme-toggle', 'theme', 'github-storage', 'github-status', 'github-connect',
+        'guest-session', 'guest-countdown', 'join',
         'google-storage', 'google-status', 'google-connect', 'google-drive', 'google-picker-dialog', 'close-google-picker',
         'google-picker-search', 'google-file-query', 'google-file-list', 'workspace-confirm-dialog', 'close-workspace-confirm',
         'workspace-preview', 'cancel-workspace-write', 'confirm-workspace-write', 'toast'].forEach(function (id) {
@@ -930,6 +967,13 @@
       let syncTimer = null;
       let pendingWorkspaceAction = null;
       let googleWorkspaceConnected = false;
+      let guestSessionEndsAt = Number(localStorage.getItem(GUEST_SESSION_END_KEY) || 0);
+      let guestCountdownTimer = null;
+      const utcDayStart = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate());
+      if (guestSessionEndsAt && guestSessionEndsAt < utcDayStart) {
+        guestSessionEndsAt = 0;
+        localStorage.removeItem(GUEST_SESSION_END_KEY);
+      }
 
       if (!conversations.length) conversations.push(createConversation());
       if (!conversations.some(function (conversation) { return conversation.id === activeId; })) activeId = conversations[0].id;
@@ -939,6 +983,7 @@
       hydrateIcons();
       applyTheme(els.theme.value, false);
       acceptGithubCallback();
+      startGuestCountdown();
       configureGithubStorage();
       configureGoogleWorkspace();
 
@@ -1053,11 +1098,48 @@
 
       function authToken() { return localStorage.getItem(AUTH_KEY) || ''; }
       function apiHeaders() { return authToken() ? { Authorization: 'Bearer ' + authToken() } : {}; }
+      function formatCountdown(seconds) {
+        const remaining = Math.max(0, Math.floor(seconds));
+        const hours = Math.floor(remaining / 3600);
+        const minutes = Math.floor((remaining % 3600) / 60);
+        const secs = remaining % 60;
+        return hours + ':' + String(minutes).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+      }
+      function renderGuestCountdown() {
+        if (authToken()) {
+          els.guestSession.hidden = true;
+          return;
+        }
+        els.guestSession.hidden = false;
+        const hasStarted = Number.isFinite(guestSessionEndsAt) && guestSessionEndsAt > 0;
+        const seconds = hasStarted ? Math.max(0, Math.ceil((guestSessionEndsAt - Date.now()) / 1000)) : 3600;
+        els.guestCountdown.textContent = seconds === 0 && hasStarted ? 'Ended' : formatCountdown(seconds);
+        els.guestCountdown.classList.toggle('ended', seconds === 0 && hasStarted);
+        els.guestCountdown.dateTime = 'PT' + seconds + 'S';
+        els.guestSession.title = hasStarted ? 'Guest session time remaining' : 'Guest time starts with your first message';
+      }
+      function startGuestCountdown() {
+        clearInterval(guestCountdownTimer);
+        renderGuestCountdown();
+        guestCountdownTimer = setInterval(renderGuestCountdown, 1000);
+      }
+      function captureGuestSession(response, payload) {
+        if (authToken()) return;
+        const headerValue = response.headers.get('X-RateLimit-Session-Ends');
+        const payloadValue = payload && payload.session && payload.session.endsAt;
+        const parsed = headerValue ? Date.parse(headerValue) : Number(payloadValue || 0);
+        if (!Number.isFinite(parsed) || parsed <= 0) return;
+        guestSessionEndsAt = parsed;
+        localStorage.setItem(GUEST_SESSION_END_KEY, String(parsed));
+        renderGuestCountdown();
+      }
       function acceptGithubCallback() {
         const fragment = new URLSearchParams(location.hash.replace(/^#/, ''));
         const token = fragment.get('github_token');
         if (token) {
           localStorage.setItem(AUTH_KEY, token);
+          localStorage.removeItem(GUEST_SESSION_END_KEY);
+          guestSessionEndsAt = 0;
           history.replaceState(null, '', location.pathname + location.search.replace(/([?&])github=[^&]*/g, '$1').replace(/[?&]$/, ''));
           showToast('GitHub connected. Conversation history will sync privately.');
         }
@@ -1444,6 +1526,7 @@
         const text = await response.text();
         let payload;
         try { payload = text ? JSON.parse(text) : {}; } catch (error) { throw new Error('The backend returned an unreadable response.'); }
+        captureGuestSession(response, payload);
         if (!response.ok || payload.success === false) throw new Error((payload.message || payload.error || response.statusText || 'Request failed') + (payload.retryAfter ? ' Try again in ' + formatRetryAfter(payload.retryAfter) + '.' : ''));
         return payload;
       }
@@ -1611,6 +1694,7 @@
         if (authToken()) syncGithubHistory(conversations).catch(function (error) { showToast(error.message); });
         else location.href = normalizeBase(els.apiBase.value) + '/api/github/connect';
       });
+      els.join.addEventListener('click', function () { location.href = normalizeBase(els.apiBase.value) + '/api/github/connect'; });
       matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () { if ((localStorage.getItem(THEME_KEY) || 'system') === 'system') applyTheme('system', false); });
       [els.openSettings, els.topSettings].forEach(function (button) { button.addEventListener('click', function () { els.settingsDialog.showModal(); }); });
       els.closeSettings.addEventListener('click', function () { els.settingsDialog.close(); });
