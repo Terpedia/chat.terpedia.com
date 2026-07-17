@@ -159,7 +159,7 @@
         return output;
       }
       function fact(label, value) { return value ? '<div class="fact"><dt>' + escapeHtml(label) + '</dt><dd>' + value + '</dd></div>' : ''; }
-      function humanize(value) { return String(value || '').replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, function (letter) { return letter.toUpperCase(); }); }
+      function humanize(value) { return String(value || '').replace(/_/g, ' ').replace(/([a-z])(\d)/gi, '$1 $2').toLowerCase().replace(/\b\w/g, function (letter) { return letter.toUpperCase(); }); }
       function linkedParagraphs(value, terms, linked) {
         return String(value || '').split(/\n{2,}/).filter(Boolean).map(function (paragraph) { return '<p class="study-copy">' + linkedText(paragraph, terms, linked) + '</p>'; }).join('');
       }
