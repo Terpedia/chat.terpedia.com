@@ -1019,6 +1019,9 @@
 
       function authToken() { return localStorage.getItem(AUTH_KEY) || ''; }
       function apiHeaders() { return authToken() ? { Authorization: 'Bearer ' + authToken() } : {}; }
+      function chatIdentityHeaders() {
+        return authToken() ? apiHeaders() : { 'X-Terpedia-Anonymous-Id': sessionKey };
+      }
       function formatCountdown(seconds) {
         const remaining = Math.max(0, Math.floor(seconds));
         const hours = Math.floor(remaining / 3600);
@@ -1428,7 +1431,7 @@
         localStorage.setItem(API_KEY, apiBase);
         const response = await fetch(apiBase + '/api/chat', {
           method: 'POST',
-          headers: Object.assign({ 'Content-Type': 'application/json', 'X-Client': 'chat.terpedia.com' }, apiHeaders()),
+          headers: Object.assign({ 'Content-Type': 'application/json', 'X-Client': 'chat.terpedia.com' }, chatIdentityHeaders()),
           body: JSON.stringify(requestBody(message, outgoingAttachments))
         });
         const text = await response.text();
