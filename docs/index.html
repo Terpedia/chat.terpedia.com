@@ -1444,8 +1444,18 @@
         const text = await response.text();
         let payload;
         try { payload = text ? JSON.parse(text) : {}; } catch (error) { throw new Error('The backend returned an unreadable response.'); }
-        if (!response.ok || payload.success === false) throw new Error((payload.message || payload.error || response.statusText || 'Request failed') + (payload.retryAfter ? ' Try again in ' + payload.retryAfter + ' seconds.' : ''));
+        if (!response.ok || payload.success === false) throw new Error((payload.message || payload.error || response.statusText || 'Request failed') + (payload.retryAfter ? ' Try again in ' + formatRetryAfter(payload.retryAfter) + '.' : ''));
         return payload;
+      }
+
+      function formatRetryAfter(value) {
+        const seconds = Math.max(0, Math.ceil(Number(value) || 0));
+        if (seconds < 60) return seconds + 's';
+        const totalMinutes = Math.ceil(seconds / 60);
+        if (totalMinutes < 60) return totalMinutes + 'm';
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        return hours + 'h ' + String(minutes).padStart(2, '0') + 'm';
       }
 
       function summarizePayload(payload) {
