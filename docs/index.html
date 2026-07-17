@@ -791,8 +791,20 @@
         els[id.replace(/-([a-z])/g, function (_, char) { return char.toUpperCase(); })] = document.getElementById(id);
       });
 
+      function newId() {
+        if (window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
+        if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
+          const bytes = window.crypto.getRandomValues(new Uint8Array(16));
+          bytes[6] = (bytes[6] & 15) | 64;
+          bytes[8] = (bytes[8] & 63) | 128;
+          return Array.from(bytes, function (byte) { return byte.toString(16).padStart(2, '0'); })
+            .join('').replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, '$1-$2-$3-$4-$5');
+        }
+        return 'fallback-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+      }
+
       const params = new URLSearchParams(window.location.search);
-      const sessionKey = localStorage.getItem(USER_KEY) || 'terpedia:' + crypto.randomUUID();
+      const sessionKey = localStorage.getItem(USER_KEY) || 'terpedia:' + newId();
       localStorage.setItem(USER_KEY, sessionKey);
       els.apiBase.value = normalizeBase(params.get('api') || localStorage.getItem(API_KEY) || window.TERPEDIA_CHAT_CONFIG.apiBaseUrl);
       els.theme.value = localStorage.getItem(THEME_KEY) || 'system';
@@ -890,7 +902,7 @@
 
       function createConversation() {
         const now = new Date().toISOString();
-        return { id: crypto.randomUUID(), title: 'New chat', createdAt: now, updatedAt: now, participants: [], useRag: true, messages: [] };
+        return { id: newId(), title: 'New chat', createdAt: now, updatedAt: now, participants: [], useRag: true, messages: [] };
       }
       function readConversations() {
         try {
@@ -1056,7 +1068,7 @@
       function addMessage(role, text, meta, messageAttachments, isError, agentId, citations) {
         const conversation = activeConversation();
         const now = new Date().toISOString();
-        conversation.messages.push({ id: crypto.randomUUID(), role: role, text: text, meta: meta || '', agentId: agentId || '', attachments: messageAttachments || [], citations: citations || [], error: Boolean(isError), createdAt: now });
+        conversation.messages.push({ id: newId(), role: role, text: text, meta: meta || '', agentId: agentId || '', attachments: messageAttachments || [], citations: citations || [], error: Boolean(isError), createdAt: now });
         if (role === 'user' && conversation.title === 'New chat') conversation.title = (plainText(text) || 'Attachment review').slice(0, 44);
         conversation.updatedAt = now;
         persist();
@@ -1088,7 +1100,7 @@
       async function addPdf(file) {
         if (attachments.filter(function (item) { return item.kind === 'document'; }).length >= MAX_DOCUMENTS) throw new Error('You can attach up to three PDFs.');
         if (file.size > MAX_PDF_BYTES) throw new Error(file.name + ' is larger than 15 MB.');
-        const item = { id: crypto.randomUUID(), name: file.name, type: 'application/pdf', kind: 'document', size: file.size, processing: true, content: '' };
+        const item = { id: newId(), name: file.name, type: 'application/pdf', kind: 'document', size: file.size, processing: true, content: '' };
         attachments.push(item);
         renderAttachments();
         try {
@@ -1126,7 +1138,7 @@
       async function addImage(file) {
         if (attachments.filter(function (item) { return item.kind === 'image'; }).length >= MAX_IMAGES) throw new Error('You can attach up to three images for one scan.');
         const processed = await compressImage(file);
-        attachments.push({ id: crypto.randomUUID(), name: file.name, type: processed.type, kind: 'image', size: processed.size, originalSize: file.size, dataUrl: processed.dataUrl, previewUrl: processed.dataUrl, width: processed.width, height: processed.height });
+        attachments.push({ id: newId(), name: file.name, type: processed.type, kind: 'image', size: processed.size, originalSize: file.size, dataUrl: processed.dataUrl, previewUrl: processed.dataUrl, width: processed.width, height: processed.height });
       }
 
       async function compressImage(file) {
