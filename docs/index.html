@@ -970,6 +970,11 @@
           if (!canonicalId) return marker;
           return '<sup class="knowledge-citation"><a href="#' + citationDomId(messageId, canonicalId) + '" aria-label="Reference ' + escapeHtml(canonicalId) + '">[' + escapeHtml(canonicalId) + ']</a></sup>';
         });
+        safe = safe.replace(/https?:\/\/(?:www\.)?clinicaltrials\.gov\/study\/(NCT\d{8})\/?|https:\/\/chat\.terpedia\.com\/clinicaltrials\?nct=(NCT\d{8})/gi, function (_, externalId, internalId) {
+          const nctId = String(externalId || internalId).toUpperCase();
+          const href = '/clinicaltrials?nct=' + encodeURIComponent(nctId);
+          return '<a href="' + href + '">https://chat.terpedia.com' + href + '</a>';
+        });
         safe = safe.replace(/^### (.+)$/gm, '<strong>$1</strong>');
         safe = safe.replace(/^##? (.+)$/gm, '<strong>$1</strong>');
         safe = safe.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
