@@ -561,6 +561,30 @@
     .storage-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--line); border-radius: 7px; padding: 10px; }
     .storage-row span { min-width: 0; color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .storage-row button { min-height: 34px; flex: 0 0 auto; border: 1px solid var(--line); border-radius: 7px; background: var(--canvas); padding: 0 11px; font-weight: 600; font-size: 12px; }
+    .composer-source-button { flex: 0 0 34px; }
+    .picker-tools { display: flex; gap: 8px; padding: 12px 18px; border-bottom: 1px solid var(--line); }
+    .picker-tools input { min-width: 0; flex: 1; min-height: 38px; border: 1px solid var(--line); border-radius: 7px; background: var(--canvas); color: var(--ink); padding: 0 10px; }
+    .picker-tools button, .dialog-actions button { min-height: 38px; border: 1px solid var(--line); border-radius: 7px; background: var(--canvas); color: var(--ink); padding: 0 13px; font-weight: 600; }
+    .drive-files { max-height: min(58vh, 480px); overflow-y: auto; padding: 8px 12px 14px; }
+    .drive-file { width: 100%; min-height: 54px; display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 10px; border: 0; border-radius: 7px; background: transparent; color: var(--ink); padding: 7px 8px; text-align: left; }
+    .drive-file:hover { background: var(--surface); }
+    .drive-file .file-icon { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 6px; background: var(--surface-strong); color: var(--brand); }
+    .drive-file .file-icon .icon { width: 17px; height: 17px; }
+    .drive-file strong, .drive-file small { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .drive-file strong { font-size: 12px; }
+    .drive-file small { margin-top: 3px; color: var(--muted); font-size: 10px; }
+    .drive-file > .icon { width: 16px; height: 16px; color: var(--muted); }
+    .picker-empty { padding: 32px 18px; color: var(--muted); text-align: center; font-size: 12px; line-height: 1.5; }
+    .workspace-preview { display: grid; gap: 13px; padding: 18px; }
+    .preview-summary { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 7px 12px; margin: 0; font-size: 12px; }
+    .preview-summary dt { color: var(--muted); }
+    .preview-summary dd { min-width: 0; margin: 0; overflow-wrap: anywhere; }
+    .preview-content { max-height: 240px; overflow: auto; margin: 0; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); padding: 11px; color: var(--ink); font: 11px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; }
+    .preview-notice { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 0 18px 18px; }
+    .dialog-actions .primary { border-color: var(--brand); background: var(--brand); color: #fff; }
+    .dialog-actions .primary:hover { background: var(--brand-strong); }
+    .dialog-actions button:disabled { opacity: .55; cursor: wait; }
     .participant-list { max-height: min(62vh, 560px); overflow-y: auto; padding: 10px 14px 16px; }
     .participant-group { margin: 8px 0 14px; }
     .participant-group h3 { margin: 0 0 6px; color: var(--muted); font-family: Montserrat, system-ui, sans-serif; font-size: 11px; text-transform: uppercase; letter-spacing: 0; }
@@ -677,6 +701,7 @@
           <form class="composer-shell" id="chat-form">
             <input id="file-input" type="file" accept="image/*,application/pdf,.pdf" multiple hidden>
             <button class="icon-button attach-button" id="attach" type="button" aria-label="Add photos or PDFs" title="Add photos or PDFs"><i data-lucide="plus"></i></button>
+            <button class="icon-button composer-source-button" id="google-drive" type="button" aria-label="Attach from Google Drive" title="Attach from Google Drive" hidden><i data-lucide="hard-drive"></i></button>
             <textarea id="message" rows="1" placeholder="Message Terpedia" aria-label="Message Terpedia"></textarea>
             <button class="send-button" id="send" type="submit" aria-label="Send message" title="Send message"><i data-lucide="arrow-up"></i></button>
           </form>
@@ -693,8 +718,19 @@
       <div class="field"><label for="theme">Appearance</label><select id="theme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></div>
       <div class="field"><label for="api-base">Backend API</label><input id="api-base" type="url" autocomplete="off" spellcheck="false"></div>
       <div class="field" id="github-storage" hidden><label>Cloud storage</label><div class="storage-row"><span id="github-status">GitHub not connected</span><button id="github-connect" type="button">Connect GitHub</button></div></div>
+      <div class="field" id="google-storage" hidden><label>Google Workspace</label><div class="storage-row"><span id="google-status">Google Drive not connected</span><button id="google-connect" type="button">Connect Google</button></div></div>
       <div class="settings-status" id="status"><strong>Ready.</strong> Agent routing, RAG, PDF text, and image analysis run through the Terpedia backend.</div>
     </div>
+  </dialog>
+  <dialog id="google-picker-dialog">
+    <div class="dialog-head"><h2>Google Drive</h2><button class="icon-button" id="close-google-picker" type="button" aria-label="Close Google Drive"><i data-lucide="x"></i></button></div>
+    <form class="picker-tools" id="google-picker-search"><input id="google-file-query" type="search" placeholder="Search Docs, Sheets, and Slides" aria-label="Search Google Drive"><button type="submit">Search</button></form>
+    <div class="drive-files" id="google-file-list"><div class="picker-empty">Connect Google Workspace to attach a file.</div></div>
+  </dialog>
+  <dialog id="workspace-confirm-dialog">
+    <div class="dialog-head"><h2>Confirm Google Workspace write</h2><button class="icon-button" id="close-workspace-confirm" type="button" aria-label="Cancel Google Workspace write"><i data-lucide="x"></i></button></div>
+    <div class="workspace-preview" id="workspace-preview"></div>
+    <div class="dialog-actions"><button id="cancel-workspace-write" type="button">Cancel</button><button class="primary" id="confirm-workspace-write" type="button">Confirm write</button></div>
   </dialog>
   <dialog id="participants-dialog">
     <div class="dialog-head"><h2>Invite participants</h2><button class="icon-button" id="close-participants" type="button" aria-label="Close participant picker"><i data-lucide="x"></i></button></div>
@@ -799,7 +835,10 @@
         'participants-dialog', 'close-participants', 'use-rag', 'model', 'api-base', 'status',
         'active-title', 'active-subtitle', 'messages', 'transcript', 'chat-form', 'message', 'send', 'attach', 'file-input',
         'attachment-tray', 'settings-dialog', 'open-settings', 'top-settings', 'close-settings', 'open-sidebar', 'close-sidebar',
-        'sidebar-overlay', 'connection-dot', 'theme-toggle', 'theme', 'github-storage', 'github-status', 'github-connect', 'toast'].forEach(function (id) {
+        'sidebar-overlay', 'connection-dot', 'theme-toggle', 'theme', 'github-storage', 'github-status', 'github-connect',
+        'google-storage', 'google-status', 'google-connect', 'google-drive', 'google-picker-dialog', 'close-google-picker',
+        'google-picker-search', 'google-file-query', 'google-file-list', 'workspace-confirm-dialog', 'close-workspace-confirm',
+        'workspace-preview', 'cancel-workspace-write', 'confirm-workspace-write', 'toast'].forEach(function (id) {
         els[id.replace(/-([a-z])/g, function (_, char) { return char.toUpperCase(); })] = document.getElementById(id);
       });
 
@@ -829,6 +868,8 @@
       let toastTimer = null;
       let pdfModulePromise = null;
       let syncTimer = null;
+      let pendingWorkspaceAction = null;
+      let googleWorkspaceConnected = false;
 
       if (!conversations.length) conversations.push(createConversation());
       if (!conversations.some(function (conversation) { return conversation.id === activeId; })) activeId = conversations[0].id;
@@ -839,6 +880,7 @@
       applyTheme(els.theme.value, false);
       acceptGithubCallback();
       configureGithubStorage();
+      configureGoogleWorkspace();
 
       function hydrateIcons() {
         if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons({ attrs: { 'aria-hidden': 'true', class: 'icon' } });
@@ -965,6 +1007,121 @@
             await loadGithubHistory();
           }
         } catch (error) { els.githubStorage.hidden = true; }
+      }
+
+      async function configureGoogleWorkspace() {
+        const apiBase = normalizeBase(els.apiBase.value);
+        try {
+          const configResponse = await fetch(apiBase + '/api/google/drive/config');
+          const config = await configResponse.json();
+          els.googleStorage.hidden = !config.enabled;
+          els.googleDrive.hidden = !config.enabled;
+          if (!config.enabled) return;
+          const callback = params.get('google');
+          if (callback) {
+            const reason = params.get('reason');
+            showToast(callback === 'connected' ? 'Google Workspace connected.' : 'Google connection failed' + (reason ? ': ' + reason : '.'));
+            const cleanUrl = new URL(location.href);
+            cleanUrl.searchParams.delete('google');
+            cleanUrl.searchParams.delete('reason');
+            history.replaceState(null, '', cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
+          }
+          if (!authToken()) {
+            els.googleStatus.textContent = 'Sign in to connect Google Drive';
+            els.googleConnect.textContent = 'Sign in first';
+            return;
+          }
+          const response = await fetch(apiBase + '/api/auth/google/status', { headers: apiHeaders() });
+          const status = await response.json();
+          googleWorkspaceConnected = response.ok && status.connected;
+          els.googleStatus.textContent = googleWorkspaceConnected ? 'Docs, Sheets, and Slides connected' : 'Google Drive not connected';
+          els.googleConnect.textContent = googleWorkspaceConnected ? 'Disconnect' : 'Connect Google';
+        } catch (error) {
+          els.googleStorage.hidden = true;
+          els.googleDrive.hidden = true;
+        }
+      }
+
+      async function connectGoogleWorkspace() {
+        if (!authToken()) throw new Error('Sign in before connecting Google Workspace.');
+        if (googleWorkspaceConnected) {
+          const response = await fetch(normalizeBase(els.apiBase.value) + '/api/auth/google/disconnect', { method: 'DELETE', headers: apiHeaders() });
+          if (!response.ok) throw new Error('Google Workspace could not be disconnected.');
+          googleWorkspaceConnected = false;
+          await configureGoogleWorkspace();
+          showToast('Google Workspace disconnected and tokens revoked.');
+          return;
+        }
+        const response = await fetch(normalizeBase(els.apiBase.value) + '/api/auth/google/connect-url', { headers: apiHeaders() });
+        const result = await response.json();
+        if (!response.ok || !result.url) throw new Error(result.error || 'Google authorization could not be started.');
+        location.href = result.url;
+      }
+
+      async function loadGoogleFiles() {
+        if (!googleWorkspaceConnected) {
+          els.settingsDialog.showModal();
+          throw new Error('Connect Google Workspace in Settings first.');
+        }
+        els.googleFileList.innerHTML = '<div class="picker-empty">Loading Google Drive...</div>';
+        els.googlePickerDialog.showModal();
+        const query = els.googleFileQuery.value.trim();
+        const response = await fetch(normalizeBase(els.apiBase.value) + '/api/google/drive/files?query=' + encodeURIComponent(query), { headers: apiHeaders() });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Google Drive files could not be loaded.');
+        const icons = {
+          'application/vnd.google-apps.document': 'file-text',
+          'application/vnd.google-apps.spreadsheet': 'table-2',
+          'application/vnd.google-apps.presentation': 'presentation'
+        };
+        els.googleFileList.innerHTML = (result.files || []).map(function (file) {
+          const modified = file.modifiedTime ? new Date(file.modifiedTime).toLocaleDateString() : 'Google Workspace';
+          return '<button class="drive-file" type="button" data-google-file="' + escapeHtml(file.id) + '"><span class="file-icon"><i data-lucide="' + (icons[file.mimeType] || 'file') + '"></i></span><span><strong>' + escapeHtml(file.name) + '</strong><small>Modified ' + escapeHtml(modified) + '</small></span><i data-lucide="plus"></i></button>';
+        }).join('') || '<div class="picker-empty">No available Docs, Sheets, or Slides were found. With least-privilege access, Terpedia sees only files you have opened with or created through this integration.</div>';
+        hydrateIcons();
+      }
+
+      async function attachGoogleFile(fileId) {
+        if (attachments.filter(function (item) { return item.kind === 'document'; }).length >= MAX_DOCUMENTS) throw new Error('You can attach up to three documents.');
+        const response = await fetch(normalizeBase(els.apiBase.value) + '/api/google/drive/read', {
+          method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, apiHeaders()), body: JSON.stringify({ fileId: fileId })
+        });
+        const file = await response.json();
+        if (!response.ok) throw new Error(file.error || 'The Google Workspace file could not be attached.');
+        attachments.push({ id: newId(), googleFileId: file.id, name: file.name, type: file.mimeType, kind: 'document', size: file.content.length, content: file.content, sourceUrl: file.webViewLink, source: 'google_drive' });
+        renderAttachments();
+        els.googlePickerDialog.close();
+        showToast(file.name + ' attached from Google Drive.');
+      }
+
+      function showWorkspacePreview(action) {
+        if (!action?.confirmationToken || !action.preview) return;
+        pendingWorkspaceAction = action;
+        const preview = action.preview;
+        const counts = preview.fileType === 'sheets' ? preview.rows + ' rows' : preview.fileType === 'slides' ? preview.slides + ' slides' : 'Document content';
+        els.workspacePreview.innerHTML = '<dl class="preview-summary"><dt>Action</dt><dd>' + escapeHtml(preview.operation + ' ' + preview.fileType) + '</dd><dt>Title</dt><dd>' + escapeHtml(preview.title || 'Existing file') + '</dd><dt>Contents</dt><dd>' + escapeHtml(counts) + '</dd><dt>Agent</dt><dd>' + escapeHtml(preview.provenance?.agent || 'Terpedia') + '</dd><dt>Expires</dt><dd>' + escapeHtml(new Date(action.expiresAt).toLocaleTimeString()) + '</dd></dl>' +
+          (preview.contentPreview ? '<pre class="preview-content">' + escapeHtml(preview.contentPreview) + '</pre>' : '') +
+          '<p class="preview-notice">Nothing is written until you confirm. The artifact will include its Terpedia agent, timestamp, trace, and cited sources.</p>';
+        els.workspaceConfirmDialog.showModal();
+      }
+
+      async function confirmWorkspaceWrite() {
+        if (!pendingWorkspaceAction) return;
+        els.confirmWorkspaceWrite.disabled = true;
+        try {
+          const response = await fetch(normalizeBase(els.apiBase.value) + '/api/google/drive/actions/confirm', {
+            method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, apiHeaders()), body: JSON.stringify({ confirmationToken: pendingWorkspaceAction.confirmationToken })
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || 'The Google Workspace write failed.');
+          const safeUrl = safeExternalUrl(result.url);
+          addMessage('assistant', 'Your Google Workspace artifact is ready.', 'Google Workspace', [], false, 'publication_editor', safeUrl ? [{ id: 'Drive', title: result.title || 'Open artifact', url: safeUrl }] : []);
+          pendingWorkspaceAction = null;
+          els.workspaceConfirmDialog.close();
+          showToast('Google Workspace artifact created.');
+        } finally {
+          els.confirmWorkspaceWrite.disabled = false;
+        }
       }
       function scheduleGithubSync(value) {
         if (!authToken() || els.githubStorage.hidden) return;
@@ -1185,7 +1342,7 @@
           useRag: els.useRag.checked,
           current_datetime: new Date().toISOString(),
           documents: outgoingAttachments.filter(function (item) { return item.kind === 'document'; }).map(function (item) {
-            return { id: item.id, name: item.name, mimeType: item.type, size: item.size, content: item.content };
+            return { id: item.id, name: item.name, mimeType: item.type, size: item.size, content: item.content, source: item.source, sourceUrl: item.sourceUrl, googleFileId: item.googleFileId };
           }),
           images: outgoingAttachments.filter(function (item) { return item.kind === 'image'; }).map(function (item) {
             return { id: item.id, name: item.name, mimeType: item.type, size: item.size, originalSize: item.originalSize, dataUrl: item.dataUrl, width: item.width, height: item.height };
@@ -1207,7 +1364,7 @@
         localStorage.setItem(API_KEY, apiBase);
         const response = await fetch(apiBase + '/api/chat', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Client': 'chat.terpedia.com' },
+          headers: Object.assign({ 'Content-Type': 'application/json', 'X-Client': 'chat.terpedia.com' }, apiHeaders()),
           body: JSON.stringify(requestBody(message, outgoingAttachments))
         });
         const text = await response.text();
@@ -1273,6 +1430,7 @@
             addMessage('assistant', participant.response || '', participant.name || agentNames[participant.agent] || participant.agent, [], false, participant.agent);
           });
           addMessage('assistant', payload.response || 'No response text returned.', summarizePayload(payload), [], false, payload.panel ? 'panel_moderator' : payload.agent, payload.rag?.citations || []);
+          if (payload.workspace_action) showWorkspacePreview(payload.workspace_action);
           setBusy(false, false);
           setStatus('Ready.', 'Last response returned from ' + (payload.agent_display_name || payload.agent || 'the backend') + '.');
         } catch (error) {
@@ -1285,7 +1443,19 @@
       els.message.addEventListener('input', autoSizeTextarea);
       els.message.addEventListener('keydown', function (event) { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); els.chatForm.requestSubmit(); } });
       els.attach.addEventListener('click', function () { els.fileInput.click(); });
+      els.googleDrive.addEventListener('click', function () { loadGoogleFiles().catch(function (error) { showToast(error.message); }); });
       els.fileInput.addEventListener('change', function () { addFiles(els.fileInput.files); });
+      els.googleConnect.addEventListener('click', function () { connectGoogleWorkspace().catch(function (error) { showToast(error.message); }); });
+      els.closeGooglePicker.addEventListener('click', function () { els.googlePickerDialog.close(); });
+      els.googlePickerSearch.addEventListener('submit', function (event) { event.preventDefault(); loadGoogleFiles().catch(function (error) { showToast(error.message); }); });
+      els.googleFileList.addEventListener('click', function (event) {
+        const button = event.target.closest('[data-google-file]');
+        if (button) attachGoogleFile(button.dataset.googleFile).catch(function (error) { showToast(error.message); });
+      });
+      function cancelWorkspaceWrite() { pendingWorkspaceAction = null; els.workspaceConfirmDialog.close(); }
+      els.closeWorkspaceConfirm.addEventListener('click', cancelWorkspaceWrite);
+      els.cancelWorkspaceWrite.addEventListener('click', cancelWorkspaceWrite);
+      els.confirmWorkspaceWrite.addEventListener('click', function () { confirmWorkspaceWrite().catch(function (error) { showToast(error.message); }); });
       els.attachmentTray.addEventListener('click', function (event) {
         const button = event.target.closest('[data-remove-attachment]');
         if (!button) return;
