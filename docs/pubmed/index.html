@@ -125,7 +125,7 @@
     (function () {
       'use strict';
       const API_BASE = 'https://api.terpedia.com';
-      const CYC_BASE = 'https://cyc.terpedia.com/wiki/';
+      const CYC_BASE = 'https://cyc.terpedia.com/?q=';
       const THEME_KEY = 'terpedia_chat_theme';
       const encyclopediaVocabulary = [
         'alpha-pinene', 'beta-pinene', 'beta-caryophyllene', 'caryophyllene', 'limonene', 'linalool', 'myrcene',
@@ -136,7 +136,7 @@
       const els = Object.fromEntries(['status', 'loader', 'status-title', 'status-copy', 'article', 'kicker', 'title', 'authors', 'publication-line', 'abstract', 'facts', 'keywords-section', 'keywords', 'pmid-form', 'pmid-input', 'theme-toggle'].map(function (id) { return [id.replace(/-([a-z])/g, function (_, c) { return c.toUpperCase(); }), document.getElementById(id)]; }));
 
       function escapeHtml(value) { return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;'); }
-      function cycUrl(term) { return CYC_BASE + encodeURIComponent(String(term).trim().replace(/\s+/g, '_')); }
+      function cycUrl(term) { return CYC_BASE + encodeURIComponent(String(term).trim()); }
       function relevantTerms(article) {
         const available = new Map(encyclopediaVocabulary.map(function (term) { return [term.toLowerCase(), term]; }));
         return Array.from(new Set((article.keywords || []).concat(encyclopediaVocabulary).map(function (term) { return available.get(String(term).toLowerCase()); }).filter(Boolean))).sort(function (a, b) { return b.length - a.length; });
