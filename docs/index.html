@@ -3,41 +3,42 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#ffffff">
+  <meta name="theme-color" content="#f7f5f0">
   <title>Terpedia Chat</title>
   <script>
     (function () {
-      const saved = localStorage.getItem('terpedia_chat_theme') || 'system';
+      const saved = localStorage.getItem('terpedia_chat_theme') || 'light';
       const dark = saved === 'dark' || (saved === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
       document.documentElement.dataset.theme = dark ? 'dark' : 'light';
     })();
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&family=PT+Serif:wght@400;700&family=Playfair+Display:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
-      --sidebar: #f3f4f2;
-      --canvas: #ffffff;
-      --surface: #f7f8f7;
-      --surface-strong: #ebeeeb;
-      --ink: #1f2422;
-      --muted: #68706c;
-      --line: #dfe3e0;
-      --brand: #147a55;
-      --brand-strong: #0d6545;
+      --sidebar: #ebe9e4;
+      --canvas: #f7f5f0;
+      --surface: #efede7;
+      --surface-strong: #e2ded5;
+      --ink: #29201a;
+      --muted: #746c64;
+      --line: #d8d2c8;
+      --brand: #37a95d;
+      --brand-strong: #247b43;
+      --gold: #c6a84f;
       --blue: #315f99;
       --danger: #a63d3d;
       --warning: #9a5a18;
-      --topbar-bg: rgba(255, 255, 255, 0.96);
-      --composer-bg: rgba(255, 255, 255, 0.97);
-      --sidebar-hover: #e5e8e5;
-      --sidebar-active: #e3e7e3;
-      --user-bubble: #edf2ef;
+      --topbar-bg: rgba(247, 245, 240, 0.96);
+      --composer-bg: rgba(247, 245, 240, 0.97);
+      --sidebar-hover: #e2dfd7;
+      --sidebar-active: #dcd8cf;
+      --user-bubble: #e3eee5;
       --danger-soft: #f4dddd;
       --pdf-soft: #f7ecec;
-      --drop-bg: #eef8f3;
-      --shadow: rgba(31, 36, 34, 0.12);
+      --drop-bg: #edf5ec;
+      --shadow: rgba(41, 32, 26, 0.12);
       --sidebar-width: 276px;
       --topbar-height: 58px;
       --composer-width: 820px;
@@ -45,26 +46,27 @@
     }
 
     :root[data-theme="dark"] {
-      --sidebar: #181b19;
-      --canvas: #212522;
-      --surface: #282d29;
-      --surface-strong: #333934;
-      --ink: #edf1ee;
-      --muted: #a5aea8;
-      --line: #3a413c;
-      --brand: #54b98c;
-      --brand-strong: #68c99b;
+      --sidebar: #191714;
+      --canvas: #24211d;
+      --surface: #2e2a25;
+      --surface-strong: #3a342e;
+      --ink: #f1efed;
+      --muted: #b6aea4;
+      --line: #4b433a;
+      --brand: #63c37f;
+      --brand-strong: #7ad593;
+      --gold: #d7bb66;
       --blue: #84aee0;
       --danger: #ee8c8c;
       --warning: #e0a05f;
-      --topbar-bg: rgba(33, 37, 34, 0.96);
-      --composer-bg: rgba(33, 37, 34, 0.98);
-      --sidebar-hover: #292e2a;
-      --sidebar-active: #303631;
-      --user-bubble: #343b36;
+      --topbar-bg: rgba(36, 33, 29, 0.96);
+      --composer-bg: rgba(36, 33, 29, 0.98);
+      --sidebar-hover: #302b26;
+      --sidebar-active: #39332d;
+      --user-bubble: #314438;
       --danger-soft: #472d2d;
       --pdf-soft: #422f31;
-      --drop-bg: #243c31;
+      --drop-bg: #283a2e;
       --shadow: rgba(0, 0, 0, 0.34);
       color-scheme: dark;
     }
@@ -76,12 +78,15 @@
     body {
       margin: 0;
       overflow: hidden;
-      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: "PT Serif", Georgia, serif;
       color: var(--ink);
       background: var(--canvas);
     }
 
-    button, input, select, textarea { font: inherit; }
+    button, input, select, textarea {
+      font-family: Montserrat, system-ui, sans-serif;
+      letter-spacing: 0;
+    }
     button { color: inherit; }
     button, select { cursor: pointer; }
     button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
@@ -96,7 +101,7 @@
       display: inline-grid;
       place-items: center;
       border: 0;
-      border-radius: 7px;
+      border-radius: 5px;
       background: transparent;
     }
     .icon-button:hover { background: var(--surface-strong); }
@@ -124,20 +129,20 @@
     }
 
     .brand { display: flex; align-items: center; gap: 9px; min-width: 0; }
-    .brand img { width: 28px; height: 28px; }
-    .brand strong { font-size: 15px; letter-spacing: 0; white-space: nowrap; }
+    .brand img { width: 38px; height: 32px; object-fit: contain; }
+    .brand strong { font-family: "Playfair Display", Georgia, serif; font-size: 19px; font-weight: 500; letter-spacing: 0; white-space: nowrap; }
 
     .new-chat {
       min-height: 42px;
       width: 100%;
       border: 1px solid var(--line);
-      border-radius: 7px;
+      border-radius: 5px;
       background: var(--canvas);
       display: flex;
       align-items: center;
       gap: 10px;
       padding: 0 12px;
-      font-size: 14px;
+      font-size: 12px;
       font-weight: 600;
       text-align: left;
     }
@@ -158,7 +163,7 @@
       width: 100%;
       height: 34px;
       border: 1px solid transparent;
-      border-radius: 7px;
+      border-radius: 5px;
       background: transparent;
       padding: 0 10px 0 32px;
       color: var(--ink);
@@ -172,6 +177,8 @@
       font-size: 11px;
       font-weight: 700;
       text-transform: uppercase;
+      font-family: Montserrat, system-ui, sans-serif;
+      letter-spacing: 0;
     }
 
     .conversation-list { flex: 1; min-height: 0; overflow-y: auto; }
@@ -179,7 +186,7 @@
       position: relative;
       width: 100%;
       min-height: 39px;
-      border-radius: 7px;
+      border-radius: 5px;
       display: flex;
       align-items: center;
       margin: 1px 0;
@@ -196,7 +203,8 @@
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
-      font-size: 13px;
+      font-family: Montserrat, system-ui, sans-serif;
+      font-size: 12px;
     }
     .conversation-delete {
       position: absolute;
@@ -219,13 +227,13 @@
       width: 100%;
       min-height: 40px;
       border: 0;
-      border-radius: 7px;
+      border-radius: 5px;
       background: transparent;
       display: flex;
       align-items: center;
       gap: 10px;
       padding: 0 10px;
-      font-size: 13px;
+      font-size: 12px;
       text-align: left;
     }
     .sidebar-action:hover { background: var(--sidebar-hover); }
@@ -249,16 +257,18 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      font-size: 14px;
+      font-family: "Playfair Display", Georgia, serif;
+      font-size: 15px;
+      font-weight: 500;
     }
-    .chat-heading span { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
+    .chat-heading span { display: block; color: var(--muted); font-family: Montserrat, system-ui, sans-serif; font-size: 10px; margin-top: 2px; letter-spacing: 0; }
 
     .top-controls { display: flex; align-items: center; gap: 8px; }
     .compact-select {
       height: 34px;
       max-width: 210px;
       border: 1px solid var(--line);
-      border-radius: 7px;
+      border-radius: 5px;
       background: var(--canvas);
       padding: 0 28px 0 10px;
       color: var(--ink);
@@ -269,7 +279,7 @@
       height: 34px;
       max-width: 230px;
       border: 1px solid var(--line);
-      border-radius: 7px;
+      border-radius: 5px;
       background: var(--canvas);
       display: flex;
       align-items: center;
@@ -285,7 +295,7 @@
     .rag-toggle {
       height: 34px;
       border: 1px solid var(--line);
-      border-radius: 7px;
+      border-radius: 5px;
       background: var(--canvas);
       display: flex;
       align-items: center;
@@ -314,22 +324,23 @@
       padding: 30px 20px;
     }
     .empty-inner { width: min(650px, 100%); text-align: center; }
-    .empty-inner img { width: 48px; height: 48px; }
-    .empty-inner h1 { margin: 14px 0 8px; font-size: 26px; line-height: 1.2; letter-spacing: 0; }
-    .empty-inner p { margin: 0 auto 24px; max-width: 520px; color: var(--muted); font-size: 14px; line-height: 1.55; }
+    .empty-inner img { width: 72px; height: 54px; object-fit: contain; }
+    .empty-inner h1 { margin: 14px 0 8px; color: var(--brand); font-family: "Playfair Display", Georgia, serif; font-size: 30px; font-weight: 500; line-height: 1.2; letter-spacing: 0; }
+    .empty-inner p { margin: 0 auto 24px; max-width: 520px; color: var(--muted); font-size: 15px; line-height: 1.55; }
     .suggestions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; text-align: left; }
     .suggestion {
       min-height: 62px;
       border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--canvas);
-      padding: 10px 12px;
+      border-radius: 5px;
+      border-left: 3px solid var(--brand);
+      background: var(--surface);
+      padding: 11px 13px;
       font-size: 13px;
       line-height: 1.35;
     }
-    .suggestion:hover { background: var(--surface); border-color: var(--muted); }
-    .suggestion strong { display: block; margin-bottom: 3px; font-size: 12px; }
-    .suggestion span { color: var(--muted); }
+    .suggestion:hover { background: var(--surface-strong); border-color: var(--brand); }
+    .suggestion strong { display: block; margin-bottom: 3px; font-family: "Playfair Display", Georgia, serif; font-size: 14px; font-weight: 500; }
+    .suggestion span { color: var(--muted); font-family: "PT Serif", Georgia, serif; }
 
     .message-row { width: 100%; padding: 14px 22px; }
     .message-row.assistant { background: var(--canvas); }
@@ -339,7 +350,7 @@
       height: 28px;
       flex: 0 0 28px;
       border: 1px solid var(--line);
-      border-radius: 7px;
+      border-radius: 5px;
       display: grid;
       place-items: center;
       background: var(--surface);
@@ -361,9 +372,9 @@
     .message-content code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
     .message-content :not(pre) > code { background: var(--surface-strong); border-radius: 4px; padding: 2px 4px; }
     .message-content ul { padding-left: 20px; }
-    .message-meta { color: var(--muted); font-size: 11px; margin-top: 8px; }
+    .message-meta { color: var(--muted); font-family: Montserrat, system-ui, sans-serif; font-size: 10px; margin-top: 8px; letter-spacing: 0; }
     .message-sources { display: flex; flex-wrap: wrap; gap: 6px 10px; margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--line); }
-    .message-source { color: var(--brand-strong); font-size: 11px; text-decoration: none; }
+    .message-source { color: var(--brand-strong); font-family: Montserrat, system-ui, sans-serif; font-size: 10px; text-decoration: none; letter-spacing: 0; }
     .message-source:hover { text-decoration: underline; }
     .user .message-inner { justify-content: flex-end; }
     .user .avatar { display: none; }
@@ -371,7 +382,7 @@
       flex: 0 1 auto;
       max-width: min(680px, 85%);
       background: var(--user-bubble);
-      border-radius: 8px;
+      border-radius: 6px;
       padding: 10px 13px;
     }
     .error-message .message-content { color: var(--danger); }
@@ -407,7 +418,7 @@
     .drop-notice {
       display: none;
       border: 2px dashed var(--brand);
-      border-radius: 8px;
+      border-radius: 5px;
       background: var(--drop-bg);
       color: var(--brand-strong);
       padding: 12px;
@@ -465,15 +476,15 @@
     .composer-shell {
       min-height: 58px;
       border: 1px solid var(--line);
-      border-radius: 8px;
+      border-radius: 6px;
       background: var(--canvas);
       display: flex;
       align-items: flex-end;
       gap: 7px;
       padding: 8px;
-      box-shadow: 0 5px 22px var(--shadow);
+      box-shadow: 0 4px 18px var(--shadow);
     }
-    .composer-shell:focus-within { border-color: var(--brand); box-shadow: 0 5px 24px var(--shadow); }
+    .composer-shell:focus-within { border-color: var(--gold); box-shadow: 0 4px 20px var(--shadow); }
     .attach-button { margin-bottom: 1px; }
     .composer-shell textarea {
       min-width: 0;
@@ -494,7 +505,7 @@
       height: 38px;
       flex: 0 0 38px;
       border: 0;
-      border-radius: 7px;
+      border-radius: 5px;
       display: grid;
       place-items: center;
       background: var(--brand);
@@ -502,7 +513,7 @@
     }
     .send-button:hover { background: var(--brand-strong); }
     .send-button:disabled { background: var(--surface-strong); color: var(--muted); cursor: not-allowed; }
-    .composer-note { margin: 7px 0 0; text-align: center; color: var(--muted); font-size: 10px; }
+    .composer-note { margin: 7px 0 0; text-align: center; color: var(--muted); font-family: Montserrat, system-ui, sans-serif; font-size: 9px; letter-spacing: 0; }
 
     .toast {
       position: fixed;
@@ -532,7 +543,7 @@
     }
     dialog::backdrop { background: rgba(20, 25, 22, .38); }
     .dialog-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px; border-bottom: 1px solid var(--line); }
-    .dialog-head h2 { margin: 0; font-size: 16px; }
+    .dialog-head h2 { margin: 0; font-family: "Playfair Display", Georgia, serif; font-size: 18px; font-weight: 500; }
     .settings-body { display: grid; gap: 15px; padding: 18px; }
     .field { display: grid; gap: 6px; }
     .field label { color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; }
@@ -552,7 +563,7 @@
     .storage-row button { min-height: 34px; flex: 0 0 auto; border: 1px solid var(--line); border-radius: 7px; background: var(--canvas); padding: 0 11px; font-weight: 600; font-size: 12px; }
     .participant-list { max-height: min(62vh, 560px); overflow-y: auto; padding: 10px 14px 16px; }
     .participant-group { margin: 8px 0 14px; }
-    .participant-group h3 { margin: 0 0 6px; color: var(--muted); font-size: 11px; text-transform: uppercase; }
+    .participant-group h3 { margin: 0 0 6px; color: var(--muted); font-family: Montserrat, system-ui, sans-serif; font-size: 11px; text-transform: uppercase; letter-spacing: 0; }
     .participant-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
     .participant-option {
       min-height: 40px;
@@ -626,7 +637,7 @@
   <div class="app">
     <aside class="sidebar" aria-label="Conversations">
       <div class="sidebar-head">
-        <div class="brand"><img src="assets/tulip.svg" alt=""><strong>Terpedia</strong></div>
+        <div class="brand"><img src="assets/terpedia-mark.webp" alt=""><strong>Terpedia</strong></div>
         <button class="icon-button mobile-close" id="close-sidebar" type="button" aria-label="Close conversations" title="Close conversations"><i data-lucide="x"></i></button>
       </div>
       <button class="new-chat" id="new-chat" type="button"><i data-lucide="square-pen"></i><span>New chat</span></button>
@@ -807,7 +818,7 @@
       const sessionKey = localStorage.getItem(USER_KEY) || 'terpedia:' + newId();
       localStorage.setItem(USER_KEY, sessionKey);
       els.apiBase.value = normalizeBase(params.get('api') || localStorage.getItem(API_KEY) || window.TERPEDIA_CHAT_CONFIG.apiBaseUrl);
-      els.theme.value = localStorage.getItem(THEME_KEY) || 'system';
+      els.theme.value = localStorage.getItem(THEME_KEY) || 'light';
 
       let conversations = readConversations();
       let activeId = localStorage.getItem(ACTIVE_KEY);
@@ -854,7 +865,7 @@
         const systemDark = matchMedia('(prefers-color-scheme: dark)').matches;
         const dark = preference === 'dark' || (preference === 'system' && systemDark);
         document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-        document.querySelector('meta[name="theme-color"]').content = dark ? '#212522' : '#ffffff';
+        document.querySelector('meta[name="theme-color"]').content = dark ? '#24211d' : '#f7f5f0';
         if (persistPreference) localStorage.setItem(THEME_KEY, preference);
         els.theme.value = preference;
         els.themeToggle.innerHTML = '<i data-lucide="' + (dark ? 'sun' : 'moon') + '"></i>';
@@ -999,7 +1010,7 @@
       function renderMessages() {
         const conversation = activeConversation();
         if (!conversation || !conversation.messages.length) {
-          els.messages.innerHTML = '<div class="empty-state"><div class="empty-inner"><img src="assets/tulip.svg" alt=""><h1>How can Terpedia help?</h1>' +
+          els.messages.innerHTML = '<div class="empty-state"><div class="empty-inner"><img src="assets/terpedia-mark.webp" alt=""><h1>How can Terpedia help?</h1>' +
             '<p>Ask a specialist, review a PDF, or add up to three product photos for identification and comparison.</p><div class="suggestions">' +
             suggestion('Scan product photos', 'Identify labels, formats, and visible claims across several images.') +
             suggestion('Review a COA', 'Attach a PDF and check potency, contaminants, and specifications.') +
@@ -1247,6 +1258,16 @@
         setStatus('Working.', 'Routing the request through the Terpedia agent stack.');
         try {
           const payload = await sendMessage(message, outgoing);
+          if (payload.panel?.auto_invited && Array.isArray(payload.panel.participants)) {
+            const conversation = activeConversation();
+            if (conversation && conversation.participants.length === 0) {
+              conversation.participants = payload.panel.participants.map(function (participant) { return participant.agent; }).filter(Boolean).slice(0, 4);
+              conversation.updatedAt = new Date().toISOString();
+              persist();
+              refreshHeader();
+              showToast('Terpedia invited supporting agents for this topic.');
+            }
+          }
           (payload.participant_responses || []).forEach(function (participant) {
             addMessage('assistant', participant.response || '', participant.name || agentNames[participant.agent] || participant.agent, [], false, participant.agent);
           });
