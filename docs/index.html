@@ -946,7 +946,9 @@
         try {
           const url = new URL(safeUrl);
           const match = url.hostname === 'pubmed.ncbi.nlm.nih.gov' && url.pathname.match(/^\/(\d+)(?:\/|$)/);
-          return match ? '/pubmed?pmid=' + encodeURIComponent(match[1]) : safeUrl;
+          if (match) return '/pubmed?pmid=' + encodeURIComponent(match[1]);
+          const trialMatch = /(?:^|\.)clinicaltrials\.gov$/.test(url.hostname) && url.pathname.match(/^\/study\/(NCT\d{8})(?:\/|$)/i);
+          return trialMatch ? '/clinicaltrials?nct=' + encodeURIComponent(trialMatch[1].toUpperCase()) : safeUrl;
         } catch (error) { return safeUrl; }
       }
 

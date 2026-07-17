@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f5f0">
+  <title>Clinical Trials Reader | Terpedia</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Inter:wght@400;500;600&family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: light;
+      --canvas: #f7f5f0;
+      --paper: #fffefa;
+      --ink: #252823;
+      --muted: #687068;
+      --line: #d9ddd5;
+      --brand: #29735d;
+      --brand-strong: #175b48;
+      --wash: #e8f0e8;
+      --shadow: 0 12px 36px rgba(30, 48, 39, 0.08);
+    }
+    [data-theme="dark"] {
+      color-scheme: dark;
+      --canvas: #24211d;
+      --paper: #2d2a25;
+      --ink: #f0eee8;
+      --muted: #aaa9a1;
+      --line: #484840;
+      --brand: #73b99f;
+      --brand-strong: #9bd0ba;
+      --wash: #303c35;
+      --shadow: 0 16px 44px rgba(0, 0, 0, 0.24);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; min-width: 320px; background: var(--canvas); color: var(--ink); font-family: Inter, system-ui, sans-serif; }
+    button, input { font: inherit; }
+    a { color: inherit; }
+    .site-header { position: sticky; top: 0; z-index: 10; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--canvas) 92%, transparent); backdrop-filter: blur(14px); }
+    .header-inner { width: min(1120px, calc(100% - 32px)); height: 62px; margin: 0 auto; display: flex; align-items: center; gap: 18px; }
+    .brand { color: var(--ink); font-family: "DM Serif Display", Georgia, serif; font-size: 24px; text-decoration: none; }
+    .section-name { padding-left: 18px; border-left: 1px solid var(--line); color: var(--muted); font-family: Montserrat, sans-serif; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+    .header-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+    .identifier-form { display: flex; align-items: center; height: 34px; border: 1px solid var(--line); background: var(--paper); }
+    .identifier-form input { width: 142px; height: 32px; border: 0; outline: 0; padding: 0 10px; background: transparent; color: var(--ink); font-size: 12px; text-transform: uppercase; }
+    .identifier-form button, .icon-button, .chat-link { height: 34px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); }
+    .identifier-form button { border-width: 0 0 0 1px; padding: 0 11px; color: var(--brand-strong); font-family: Montserrat, sans-serif; font-size: 9px; font-weight: 700; text-transform: uppercase; cursor: pointer; }
+    .icon-button { width: 34px; display: grid; place-items: center; cursor: pointer; }
+    .icon-button svg { width: 16px; height: 16px; }
+    .chat-link { display: inline-flex; align-items: center; padding: 0 12px; color: var(--brand-strong); font-family: Montserrat, sans-serif; font-size: 9px; font-weight: 700; text-decoration: none; text-transform: uppercase; }
+    main { width: min(1120px, calc(100% - 32px)); margin: 0 auto; }
+    .article-shell { display: grid; grid-template-columns: minmax(0, 760px) minmax(190px, 1fr); gap: 64px; align-items: start; padding: 64px 0 88px; }
+    .article-kicker { margin: 0 0 17px; color: var(--brand-strong); font-family: Montserrat, sans-serif; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+    h1 { margin: 0; max-width: 760px; font-family: "DM Serif Display", Georgia, serif; font-size: 46px; font-weight: 400; line-height: 1.12; letter-spacing: 0; }
+    .authors { margin: 25px 0 0; color: var(--muted); font-size: 14px; line-height: 1.6; }
+    .publication-line { margin: 8px 0 0; color: var(--muted); font-size: 12px; }
+    .publication-line strong { color: var(--ink); font-weight: 600; }
+    .study-section { margin-top: 42px; border-top: 1px solid var(--line); padding-top: 25px; }
+    .study-section h2, .keywords h2 { margin: 0 0 18px; font-family: Montserrat, sans-serif; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+    .study-copy { margin: 0 0 20px; font-family: Georgia, "Times New Roman", serif; font-size: 17px; line-height: 1.72; white-space: pre-line; }
+    .record-item { padding: 18px 0; border-top: 1px solid var(--line); }
+    .record-item:first-of-type { padding-top: 0; border-top: 0; }
+    .record-item h3 { margin: 0 0 7px; font-family: Inter, sans-serif; font-size: 15px; font-weight: 600; }
+    .record-item p { margin: 0; color: var(--ink); font-size: 14px; line-height: 1.65; }
+    .record-meta { display: block; margin-bottom: 7px; color: var(--muted); font-family: Montserrat, sans-serif; font-size: 9px; font-weight: 700; text-transform: uppercase; }
+    .section-label { display: block; margin-bottom: 5px; color: var(--ink); font-family: Inter, sans-serif; font-size: 12px; font-weight: 600; }
+    .cyc-link { color: inherit; text-decoration-line: underline; text-decoration-style: dotted; text-decoration-color: color-mix(in srgb, var(--brand) 65%, transparent); text-underline-offset: 3px; }
+    .cyc-link:hover { color: var(--brand-strong); text-decoration-style: solid; }
+    .sidebar { position: sticky; top: 92px; border-top: 3px solid var(--brand); padding-top: 18px; }
+    .fact { padding: 0 0 15px; margin: 0 0 15px; border-bottom: 1px solid var(--line); }
+    .fact dt { margin-bottom: 5px; color: var(--muted); font-family: Montserrat, sans-serif; font-size: 9px; font-weight: 700; text-transform: uppercase; }
+    .fact dd { margin: 0; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+    .fact a { color: var(--brand-strong); text-decoration: none; }
+    .fact a:hover { text-decoration: underline; }
+    .keywords { margin-top: 28px; }
+    .keyword-list { display: flex; flex-wrap: wrap; gap: 7px 10px; }
+    .keyword-list a { color: var(--muted); font-size: 11px; text-decoration: none; border-bottom: 1px dotted var(--brand); }
+    .keyword-list a:hover { color: var(--brand-strong); }
+    .status { min-height: calc(100vh - 62px); display: grid; place-items: center; text-align: center; }
+    .status-inner { max-width: 520px; padding: 50px 20px; }
+    .status h1 { font-size: 42px; }
+    .status p { color: var(--muted); line-height: 1.65; }
+    .status[hidden], .article-shell[hidden] { display: none; }
+    .loader { width: 30px; height: 30px; margin: 0 auto 20px; border: 2px solid var(--line); border-top-color: var(--brand); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (max-width: 760px) {
+      .header-inner { width: min(100% - 20px, 1120px); gap: 10px; }
+      .section-name, .identifier-form { display: none; }
+      main { width: min(100% - 28px, 1120px); }
+      .article-shell { grid-template-columns: 1fr; gap: 42px; padding: 38px 0 64px; }
+      h1 { font-size: 34px; line-height: 1.1; }
+      .study-section { margin-top: 36px; }
+      .study-copy { font-size: 16px; }
+      .sidebar { position: static; }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="/">Terpedia</a>
+      <span class="section-name">Clinical trials reader</span>
+      <div class="header-actions">
+        <form class="identifier-form" id="identifier-form"><input id="identifier-input" autocapitalize="characters" pattern="NCT[0-9]{8}" aria-label="NCT identifier" placeholder="NCT identifier"><button type="submit">Open</button></form>
+        <a class="chat-link" href="/">Chat</a>
+        <button class="icon-button" id="theme-toggle" type="button" aria-label="Use dark mode" title="Use dark mode"></button>
+      </div>
+    </div>
+  </header>
+  <main>
+    <section class="status" id="status"><div class="status-inner"><div class="loader" id="loader"></div><h1 id="status-title">Opening trial</h1><p id="status-copy">Retrieving the study record and its provenance.</p></div></section>
+    <article class="article-shell" id="article" hidden>
+      <div>
+        <p class="article-kicker" id="kicker"></p>
+        <h1 id="title"></h1>
+        <p class="authors" id="organization"></p>
+        <p class="publication-line" id="publication-line"></p>
+        <section class="study-section"><h2>Overview</h2><div id="overview"></div></section>
+        <div id="study-sections"></div>
+      </div>
+      <aside class="sidebar" aria-label="Clinical trial details">
+        <dl id="facts"></dl>
+        <section class="keywords" id="keywords-section"><h2>Encyclopedia terms</h2><div class="keyword-list" id="keywords"></div></section>
+      </aside>
+    </article>
+  </main>
+  <script src="https://unpkg.com/lucide@1.24.0/dist/umd/lucide.min.js"></script>
+  <script>
+    (function () {
+      'use strict';
+      const API_BASE = 'https://api.terpedia.com';
+      const CYC_BASE = 'https://cyc.terpedia.com/?q=';
+      const THEME_KEY = 'terpedia_chat_theme';
+      const encyclopediaVocabulary = [
+        'alpha-pinene', 'beta-pinene', 'beta-caryophyllene', 'caryophyllene', 'limonene', 'linalool', 'myrcene',
+        'terpinolene', 'ocimene', 'humulene', 'bisabolol', 'nerolidol', 'geraniol', 'camphene', 'borneol',
+        'eucalyptol', 'terpineol', 'valencene', 'phytol', 'farnesene', 'cannabis', 'cannabinoid', 'cannabinoids',
+        'cannabidiol', 'tetrahydrocannabinol', 'CBD', 'THC'
+      ];
+      const els = Object.fromEntries(['status', 'loader', 'status-title', 'status-copy', 'article', 'kicker', 'title', 'organization', 'publication-line', 'overview', 'study-sections', 'facts', 'keywords-section', 'keywords', 'identifier-form', 'identifier-input', 'theme-toggle'].map(function (id) { return [id.replace(/-([a-z])/g, function (_, c) { return c.toUpperCase(); }), document.getElementById(id)]; }));
+
+      function escapeHtml(value) { return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;'); }
+      function cycUrl(term) { return CYC_BASE + encodeURIComponent(String(term).trim()); }
+      function relevantTerms(study) {
+        const available = new Map(encyclopediaVocabulary.map(function (term) { return [term.toLowerCase(), term]; }));
+        return Array.from(new Set((study.keywords || []).concat(encyclopediaVocabulary).map(function (term) { return available.get(String(term).toLowerCase()); }).filter(Boolean))).sort(function (a, b) { return b.length - a.length; });
+      }
+      function linkedText(value, terms, linked) {
+        let output = escapeHtml(value);
+        terms.forEach(function (term) {
+          if (linked.has(term.toLowerCase())) return;
+          const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const pattern = new RegExp('\\b(' + escaped + ')\\b', 'i');
+          if (!pattern.test(output)) return;
+          output = output.replace(pattern, function (match) { linked.add(term.toLowerCase()); return '<a class="cyc-link" href="' + cycUrl(term) + '">' + match + '</a>'; });
+        });
+        return output;
+      }
+      function fact(label, value) { return value ? '<div class="fact"><dt>' + escapeHtml(label) + '</dt><dd>' + value + '</dd></div>' : ''; }
+      function humanize(value) { return String(value || '').replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, function (letter) { return letter.toUpperCase(); }); }
+      function linkedParagraphs(value, terms, linked) {
+        return String(value || '').split(/\n{2,}/).filter(Boolean).map(function (paragraph) { return '<p class="study-copy">' + linkedText(paragraph, terms, linked) + '</p>'; }).join('');
+      }
+      function recordItems(items, renderer) { return (items || []).map(renderer).join(''); }
+      function studySection(title, body) { return body ? '<section class="study-section"><h2>' + escapeHtml(title) + '</h2>' + body + '</section>' : ''; }
+      function render(study) {
+        const terms = relevantTerms(study);
+        const linked = new Set();
+        document.title = study.briefTitle + ' | Terpedia';
+        els.identifierInput.value = study.nctId;
+        els.kicker.textContent = 'ClinicalTrials.gov ' + study.nctId;
+        els.title.textContent = study.briefTitle;
+        els.organization.textContent = study.leadSponsor?.name || study.organization?.fullName || '';
+        const designSummary = [study.phases.map(humanize).join(', '), humanize(study.studyType), study.conditions.join(', ')].filter(Boolean).join(' · ');
+        els.publicationLine.innerHTML = '<strong>' + escapeHtml(humanize(study.overallStatus)) + '</strong>' + (designSummary ? ' · ' + escapeHtml(designSummary) : '');
+        els.overview.innerHTML = linkedParagraphs(study.briefSummary || 'No summary is available for this study.', terms, linked) + linkedParagraphs(study.detailedDescription, terms, linked);
+        const interventions = recordItems(study.interventions, function (item) { return '<div class="record-item"><span class="record-meta">' + escapeHtml(humanize(item.type)) + '</span><h3>' + escapeHtml(item.name) + '</h3><p>' + linkedText(item.description, terms, linked) + '</p></div>'; });
+        const primaryOutcomes = recordItems(study.primaryOutcomes, function (item) { return '<div class="record-item"><span class="record-meta">' + escapeHtml(item.timeFrame || 'Primary outcome') + '</span><h3>' + escapeHtml(item.measure) + '</h3><p>' + linkedText(item.description, terms, linked) + '</p></div>'; });
+        const secondaryOutcomes = recordItems(study.secondaryOutcomes, function (item) { return '<div class="record-item"><span class="record-meta">' + escapeHtml(item.timeFrame || 'Secondary outcome') + '</span><h3>' + escapeHtml(item.measure) + '</h3><p>' + linkedText(item.description, terms, linked) + '</p></div>'; });
+        const arms = recordItems(study.arms, function (item) { return '<div class="record-item"><span class="record-meta">' + escapeHtml(humanize(item.type)) + '</span><h3>' + escapeHtml(item.label) + '</h3><p>' + linkedText(item.description, terms, linked) + '</p></div>'; });
+        els.studySections.innerHTML = studySection('Interventions', interventions) + studySection('Study arms', arms) + studySection('Primary outcomes', primaryOutcomes) + studySection('Secondary outcomes', secondaryOutcomes) + studySection('Eligibility', linkedParagraphs(study.eligibility.criteria, terms, linked));
+        const dateValue = function (date) { return date?.date ? escapeHtml(date.date + (date.type ? ' (' + humanize(date.type) + ')' : '')) : ''; };
+        const enrollment = study.enrollment?.count ? escapeHtml(String(study.enrollment.count) + (study.enrollment.type ? ' (' + humanize(study.enrollment.type) + ')' : '')) : '';
+        const ageRange = [study.eligibility.minimumAge, study.eligibility.maximumAge].filter(Boolean).join(' to ');
+        const location = study.locations[0] ? [study.locations[0].facility, study.locations[0].city, study.locations[0].state, study.locations[0].country].filter(Boolean).join(', ') : '';
+        els.facts.innerHTML = fact('Identifier', escapeHtml(study.nctId)) + fact('Status', escapeHtml(humanize(study.overallStatus))) + fact('Phase', escapeHtml(study.phases.map(humanize).join(', '))) + fact('Enrollment', enrollment) + fact('Age', escapeHtml(ageRange)) + fact('Started', dateValue(study.dates.start)) + fact('Completed', dateValue(study.dates.completion)) + fact('Site', escapeHtml(location)) + fact('Results', study.hasResults ? 'Results posted' : 'No results posted') + fact('Provenance', '<a href="' + escapeHtml(study.source.url) + '" target="_blank" rel="noopener noreferrer">View record at ClinicalTrials.gov</a>');
+        const studyText = [study.briefTitle, study.officialTitle, study.briefSummary, study.detailedDescription, study.eligibility.criteria].concat(study.interventions.map(function (item) { return item.description; })).join(' ').toLowerCase();
+        const presentTerms = terms.filter(function (term) { return studyText.includes(term.toLowerCase()); });
+        els.keywords.innerHTML = presentTerms.map(function (term) { return '<a href="' + cycUrl(term) + '">' + escapeHtml(term) + '</a>'; }).join('');
+        els.keywordsSection.hidden = !presentTerms.length;
+        els.status.hidden = true;
+        els.article.hidden = false;
+      }
+      function showError(title, copy) { els.loader.hidden = true; els.statusTitle.textContent = title; els.statusCopy.textContent = copy; els.article.hidden = true; els.status.hidden = false; }
+      async function loadStudy() {
+        const params = new URLSearchParams(location.search);
+        const nctId = String(params.get('nct') || params.get('id') || params.get('identifier') || '').trim().toUpperCase();
+        if (!/^NCT\d{8}$/.test(nctId)) return showError('Identifier needed', 'Add a valid NCT identifier to the address or open a study from a Terpedia reference.');
+        els.identifierInput.value = nctId;
+        try {
+          const response = await fetch(API_BASE + '/api/clinical-trials/' + encodeURIComponent(nctId));
+          const payload = await response.json();
+          if (!response.ok || !payload.study) throw new Error(payload.error || 'The clinical trial could not be loaded.');
+          render(payload.study);
+        } catch (error) { showError('Clinical trial unavailable', error.message || String(error)); }
+      }
+      function applyTheme(value) {
+        const dark = value === 'dark' || (value === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        document.querySelector('meta[name="theme-color"]').content = dark ? '#24211d' : '#f7f5f0';
+        els.themeToggle.innerHTML = '<i data-lucide="' + (dark ? 'sun' : 'moon') + '"></i>';
+        els.themeToggle.setAttribute('aria-label', dark ? 'Use light mode' : 'Use dark mode');
+        els.themeToggle.title = dark ? 'Use light mode' : 'Use dark mode';
+        if (window.lucide) window.lucide.createIcons({ attrs: { 'aria-hidden': 'true' } });
+      }
+      els.identifierForm.addEventListener('submit', function (event) { event.preventDefault(); const nctId = els.identifierInput.value.trim().toUpperCase(); if (/^NCT\d{8}$/.test(nctId)) location.href = '/clinicaltrials?nct=' + encodeURIComponent(nctId); });
+      els.themeToggle.addEventListener('click', function () { const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; localStorage.setItem(THEME_KEY, next); applyTheme(next); });
+      applyTheme(localStorage.getItem(THEME_KEY) || 'light');
+      loadStudy();
+    })();
+  </script>
+</body>
+</html>
