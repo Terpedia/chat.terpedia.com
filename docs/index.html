@@ -482,6 +482,7 @@
     .remove-attachment .icon { width: 13px; height: 13px; }
 
     .composer-shell {
+      position: relative;
       min-height: 58px;
       border: 1px solid var(--line);
       border-radius: 6px;
@@ -494,6 +495,47 @@
     }
     .composer-shell:focus-within { border-color: var(--gold); box-shadow: 0 4px 20px var(--shadow); }
     .attach-button { margin-bottom: 1px; }
+    .attachment-menu {
+      position: absolute;
+      left: 0;
+      bottom: calc(100% + 8px);
+      z-index: 30;
+      width: min(260px, calc(100vw - 32px));
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--canvas);
+      padding: 5px;
+      box-shadow: 0 12px 34px rgba(20, 26, 23, .18);
+    }
+    .attachment-menu[hidden] { display: none; }
+    .attachment-action {
+      width: 100%;
+      min-height: 42px;
+      display: grid;
+      grid-template-columns: 30px minmax(0, 1fr);
+      align-items: center;
+      gap: 9px;
+      border: 0;
+      border-radius: 5px;
+      background: transparent;
+      color: var(--ink);
+      padding: 6px 8px;
+      text-align: left;
+    }
+    .attachment-action:hover, .attachment-action:focus-visible { background: var(--surface); }
+    .attachment-action .action-icon {
+      width: 30px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      border-radius: 6px;
+      background: var(--surface-strong);
+      color: var(--brand);
+    }
+    .attachment-action .icon { width: 16px; height: 16px; }
+    .attachment-action strong, .attachment-action small { display: block; }
+    .attachment-action strong { font-size: 12px; }
+    .attachment-action small { margin-top: 2px; color: var(--muted); font-size: 9px; }
     .composer-shell textarea {
       min-width: 0;
       flex: 1;
@@ -707,8 +749,17 @@
           <div class="drop-notice">Drop PDFs or product photos here</div>
           <div class="attachment-tray" id="attachment-tray"></div>
           <form class="composer-shell" id="chat-form">
-            <input id="file-input" type="file" accept="image/*,application/pdf,.pdf" multiple hidden>
-            <button class="icon-button attach-button" id="attach" type="button" aria-label="Add photos or PDFs" title="Add photos or PDFs"><i data-lucide="plus"></i></button>
+            <input id="camera-input" type="file" accept="image/*" capture="environment" hidden>
+            <input id="product-photo-input" type="file" accept="image/*" multiple hidden>
+            <input id="coa-input" type="file" accept="image/*,application/pdf,.pdf" multiple hidden>
+            <input id="pdf-input" type="file" accept="application/pdf,.pdf" multiple hidden>
+            <div class="attachment-menu" id="attachment-menu" role="menu" aria-label="Add to chat" hidden>
+              <button class="attachment-action" type="button" role="menuitem" data-attachment-action="camera"><span class="action-icon"><i data-lucide="camera"></i></span><span><strong>Camera</strong><small>Take a product photo</small></span></button>
+              <button class="attachment-action" type="button" role="menuitem" data-attachment-action="product-photo"><span class="action-icon"><i data-lucide="images"></i></span><span><strong>Product photos</strong><small>Identify or compare products</small></span></button>
+              <button class="attachment-action" type="button" role="menuitem" data-attachment-action="coa"><span class="action-icon"><i data-lucide="file-scan"></i></span><span><strong>COA</strong><small>Parse laboratory results</small></span></button>
+              <button class="attachment-action" type="button" role="menuitem" data-attachment-action="document"><span class="action-icon"><i data-lucide="file-text"></i></span><span><strong>PDF</strong><small>Review a document</small></span></button>
+            </div>
+            <button class="icon-button attach-button" id="attach" type="button" aria-label="Add to chat" title="Add to chat" aria-haspopup="menu" aria-expanded="false"><i data-lucide="plus"></i></button>
             <button class="icon-button composer-source-button" id="google-drive" type="button" aria-label="Attach from Google Drive" title="Attach from Google Drive" hidden><i data-lucide="hard-drive"></i></button>
             <textarea id="message" rows="1" placeholder="Message Terpedia" aria-label="Message Terpedia"></textarea>
             <button class="send-button" id="send" type="submit" aria-label="Send message" title="Send message"><i data-lucide="arrow-up"></i></button>
@@ -841,7 +892,8 @@
       const els = {};
       ['conversation-list', 'conversation-search', 'new-chat', 'participants-button', 'participants-label', 'participant-list',
         'participants-dialog', 'close-participants', 'use-rag', 'model', 'api-base', 'status',
-        'active-title', 'active-subtitle', 'messages', 'transcript', 'chat-form', 'message', 'send', 'attach', 'file-input',
+        'active-title', 'active-subtitle', 'messages', 'transcript', 'chat-form', 'message', 'send', 'attach', 'attachment-menu',
+        'camera-input', 'product-photo-input', 'coa-input', 'pdf-input',
         'attachment-tray', 'settings-dialog', 'open-settings', 'top-settings', 'close-settings', 'open-sidebar', 'close-sidebar',
         'sidebar-overlay', 'connection-dot', 'theme-toggle', 'theme', 'github-storage', 'github-status', 'github-connect',
         'google-storage', 'google-status', 'google-connect', 'google-drive', 'google-picker-dialog', 'close-google-picker',
@@ -1266,29 +1318,29 @@
       function renderAttachments() {
         els.attachmentTray.innerHTML = attachments.map(function (item) {
           const visual = item.kind === 'image' ? '<img src="' + item.previewUrl + '" alt="">' : '<div class="file-icon"><i data-lucide="file-text"></i></div>';
-          return '<div class="attachment-card">' + visual + '<div class="details"><strong>' + escapeHtml(item.name) + '</strong><small>' + (item.processing ? 'Reading...' : formatBytes(item.size)) + '</small></div>' +
+          const workflowLabel = item.workflow === 'coa' ? 'COA' : item.workflow === 'product-photo' ? 'Product' : 'PDF';
+          return '<div class="attachment-card">' + visual + '<div class="details"><strong>' + escapeHtml(item.name) + '</strong><small>' + (item.processing ? 'Reading...' : workflowLabel + ' · ' + formatBytes(item.size)) + '</small></div>' +
             '<button class="remove-attachment" type="button" data-remove-attachment="' + item.id + '" aria-label="Remove ' + escapeHtml(item.name) + '"><i data-lucide="x"></i></button></div>';
         }).join('');
         hydrateIcons();
       }
 
-      async function addFiles(fileList) {
+      async function addFiles(fileList, workflow) {
         const files = Array.from(fileList || []);
         for (const file of files) {
           try {
-            if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) await addPdf(file);
-            else if (file.type.startsWith('image/')) await addImage(file);
+            if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) await addPdf(file, workflow || 'document');
+            else if (file.type.startsWith('image/')) await addImage(file, workflow || 'product-photo');
             else showToast(file.name + ' is not a supported PDF or image.');
           } catch (error) { showToast(error.message || String(error)); }
         }
-        els.fileInput.value = '';
         renderAttachments();
       }
 
-      async function addPdf(file) {
+      async function addPdf(file, workflow) {
         if (attachments.filter(function (item) { return item.kind === 'document'; }).length >= MAX_DOCUMENTS) throw new Error('You can attach up to three PDFs.');
         if (file.size > MAX_PDF_BYTES) throw new Error(file.name + ' is larger than 15 MB.');
-        const item = { id: newId(), name: file.name, type: 'application/pdf', kind: 'document', size: file.size, processing: true, content: '' };
+        const item = { id: newId(), name: file.name, type: 'application/pdf', kind: 'document', workflow: workflow, size: file.size, processing: true, content: '' };
         attachments.push(item);
         renderAttachments();
         try {
@@ -1323,10 +1375,10 @@
         return pdfModulePromise;
       }
 
-      async function addImage(file) {
+      async function addImage(file, workflow) {
         if (attachments.filter(function (item) { return item.kind === 'image'; }).length >= MAX_IMAGES) throw new Error('You can attach up to three images for one scan.');
         const processed = await compressImage(file);
-        attachments.push({ id: newId(), name: file.name, type: processed.type, kind: 'image', size: processed.size, originalSize: file.size, dataUrl: processed.dataUrl, previewUrl: processed.dataUrl, width: processed.width, height: processed.height });
+        attachments.push({ id: newId(), name: file.name, type: processed.type, kind: 'image', workflow: workflow, size: processed.size, originalSize: file.size, dataUrl: processed.dataUrl, previewUrl: processed.dataUrl, width: processed.width, height: processed.height });
       }
 
       async function compressImage(file) {
@@ -1353,6 +1405,8 @@
       function blobToDataUrl(blob) { return new Promise(function (resolve, reject) { const reader = new FileReader(); reader.onload = function () { resolve(reader.result); }; reader.onerror = reject; reader.readAsDataURL(blob); }); }
 
       function requestBody(message, outgoingAttachments) {
+        const workflows = outgoingAttachments.map(function (item) { return item.workflow; }).filter(Boolean);
+        const attachmentIntent = workflows.includes('coa') ? 'coa' : workflows.includes('product-photo') ? 'product-photo' : workflows.includes('document') ? 'document' : '';
         const body = {
           message: message,
           user_id: sessionKey + ':' + activeId,
@@ -1368,6 +1422,7 @@
           }),
           context: { frontend: 'chat.terpedia.com', hosting: 'github_pages', attachmentCount: outgoingAttachments.length }
         };
+        if (attachmentIntent) body.attachment_intent = attachmentIntent;
         const participants = activeConversation()?.participants || [];
         if (participants.length > 0) {
           body.participants = participants;
@@ -1421,11 +1476,12 @@
         event.preventDefault();
         if (busy || attachments.some(function (item) { return item.processing; })) return;
         let message = els.message.value.trim();
-        if (!message && attachments.some(function (item) { return item.kind === 'image'; })) message = 'Identify and compare the products shown. Read visible labels and claims, distinguish facts from inference, and note anything that is unclear.';
-        if (!message && attachments.some(function (item) { return item.kind === 'document'; })) message = 'Analyze the attached PDF and summarize the most important findings, caveats, and next actions.';
+        if (!message && attachments.some(function (item) { return item.workflow === 'coa'; })) message = 'Parse and review this COA. Extract all reported results, check internal consistency, preserve provenance, and prepare a proposed Terproduct COA record.';
+        if (!message && attachments.some(function (item) { return item.workflow === 'product-photo'; })) message = 'Identify and compare the products shown. Read visible labels, barcodes, ingredients, and claims; distinguish facts from inference; and prepare Terproduct lookup keys.';
+        if (!message && attachments.some(function (item) { return item.workflow === 'document'; })) message = 'Analyze the attached PDF and summarize the most important findings, caveats, provenance, and next actions.';
         if (!message) return;
         const outgoing = attachments.slice();
-        const displayAttachments = outgoing.map(function (item) { return { id: item.id, name: item.name, kind: item.kind, type: item.type, size: item.size, previewUrl: item.previewUrl }; });
+        const displayAttachments = outgoing.map(function (item) { return { id: item.id, name: item.name, kind: item.kind, type: item.type, workflow: item.workflow, size: item.size, previewUrl: item.previewUrl }; });
         attachments = [];
         renderAttachments();
         els.message.value = '';
@@ -1461,9 +1517,30 @@
 
       els.message.addEventListener('input', autoSizeTextarea);
       els.message.addEventListener('keydown', function (event) { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); els.chatForm.requestSubmit(); } });
-      els.attach.addEventListener('click', function () { els.fileInput.click(); });
+      function closeAttachmentMenu() {
+        els.attachmentMenu.hidden = true;
+        els.attach.setAttribute('aria-expanded', 'false');
+      }
+      els.attach.addEventListener('click', function () {
+        const willOpen = els.attachmentMenu.hidden;
+        els.attachmentMenu.hidden = !willOpen;
+        els.attach.setAttribute('aria-expanded', String(willOpen));
+        if (willOpen) els.attachmentMenu.querySelector('button').focus();
+      });
+      els.attachmentMenu.addEventListener('click', function (event) {
+        const action = event.target.closest('[data-attachment-action]');
+        if (!action) return;
+        const input = action.dataset.attachmentAction === 'camera' ? els.cameraInput
+          : action.dataset.attachmentAction === 'product-photo' ? els.productPhotoInput
+            : action.dataset.attachmentAction === 'coa' ? els.coaInput : els.pdfInput;
+        closeAttachmentMenu();
+        input.click();
+      });
       els.googleDrive.addEventListener('click', function () { loadGoogleFiles().catch(function (error) { showToast(error.message); }); });
-      els.fileInput.addEventListener('change', function () { addFiles(els.fileInput.files); });
+      els.cameraInput.addEventListener('change', function () { addFiles(els.cameraInput.files, 'product-photo'); els.cameraInput.value = ''; });
+      els.productPhotoInput.addEventListener('change', function () { addFiles(els.productPhotoInput.files, 'product-photo'); els.productPhotoInput.value = ''; });
+      els.coaInput.addEventListener('change', function () { addFiles(els.coaInput.files, 'coa'); els.coaInput.value = ''; });
+      els.pdfInput.addEventListener('change', function () { addFiles(els.pdfInput.files, 'document'); els.pdfInput.value = ''; });
       els.googleConnect.addEventListener('click', function () { connectGoogleWorkspace().catch(function (error) { showToast(error.message); }); });
       els.closeGooglePicker.addEventListener('click', function () { els.googlePickerDialog.close(); });
       els.googlePickerSearch.addEventListener('submit', function (event) { event.preventDefault(); loadGoogleFiles().catch(function (error) { showToast(error.message); }); });
@@ -1550,6 +1627,8 @@
       document.addEventListener('dragleave', function () { dragDepth -= 1; if (dragDepth <= 0) { dragDepth = 0; document.body.classList.remove('dragging'); } });
       document.addEventListener('dragover', function (event) { event.preventDefault(); });
       document.addEventListener('drop', function (event) { event.preventDefault(); dragDepth = 0; document.body.classList.remove('dragging'); if (event.dataTransfer) addFiles(event.dataTransfer.files); });
+      document.addEventListener('click', function (event) { if (!event.target.closest('#attach') && !event.target.closest('#attachment-menu')) closeAttachmentMenu(); });
+      document.addEventListener('keydown', function (event) { if (event.key === 'Escape') closeAttachmentMenu(); });
     })();
   </script>
 </body>
