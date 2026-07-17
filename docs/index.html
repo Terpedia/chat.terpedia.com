@@ -373,9 +373,17 @@
     .message-content :not(pre) > code { background: var(--surface-strong); border-radius: 4px; padding: 2px 4px; }
     .message-content ul { padding-left: 20px; }
     .message-meta { color: var(--muted); font-family: Montserrat, system-ui, sans-serif; font-size: 10px; margin-top: 8px; letter-spacing: 0; }
-    .message-sources { display: flex; flex-wrap: wrap; gap: 6px 10px; margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--line); }
-    .message-source { color: var(--brand-strong); font-family: Montserrat, system-ui, sans-serif; font-size: 10px; text-decoration: none; letter-spacing: 0; }
-    .message-source:hover { text-decoration: underline; }
+    .knowledge-citation { margin-left: 2px; font-family: Montserrat, system-ui, sans-serif; font-size: 0.68em; line-height: 0; vertical-align: super; }
+    .knowledge-citation a { color: var(--brand-strong); text-decoration: none; }
+    .knowledge-citation a:hover { text-decoration: underline; }
+    .message-references { margin-top: 12px; padding-top: 9px; border-top: 1px solid var(--line); }
+    .references-title { color: var(--muted); font-family: Montserrat, system-ui, sans-serif; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+    .references-list { margin: 6px 0 0; padding: 0; list-style: none; }
+    .reference-entry { margin: 4px 0; color: var(--muted); font-size: 11px; line-height: 1.45; scroll-margin-top: calc(var(--topbar-height) + 12px); }
+    .reference-entry:target { color: var(--ink); }
+    .reference-entry a { color: var(--brand-strong); text-decoration: none; }
+    .reference-entry a:hover { text-decoration: underline; }
+    .reference-id { margin-right: 5px; font-family: Montserrat, system-ui, sans-serif; font-size: 10px; font-weight: 700; }
     .user .message-inner { justify-content: flex-end; }
     .user .avatar { display: none; }
     .user .message-content {
@@ -932,13 +940,23 @@
         try { const url = new URL(String(value || '')); return /^https?:$/.test(url.protocol) ? url.href : ''; } catch (error) { return ''; }
       }
 
-      function renderMarkdown(value) {
+      function citationDomId(messageId, citationId) {
+        return 'reference-' + String(messageId || 'message').replace(/[^a-zA-Z0-9_-]/g, '-') + '-' + String(citationId || 'source').replace(/[^a-zA-Z0-9_-]/g, '-');
+      }
+
+      function renderMarkdown(value, messageId, citations) {
         let safe = escapeHtml(value || '');
         const codeBlocks = [];
         safe = safe.replace(/```(?:\w+)?\n([\s\S]*?)```/g, function (_, code) {
           const token = '@@CODE' + codeBlocks.length + '@@';
           codeBlocks.push('<pre><code>' + code.trim() + '</code></pre>');
           return token;
+        });
+        const citationIds = new Map((citations || []).map(function (item) { return String(item.id || ''); }).filter(function (id) { return /^K\d+$/i.test(id); }).map(function (id) { return [id.toUpperCase(), id]; }));
+        safe = safe.replace(/\[(K\d+)\]/gi, function (marker, citationId) {
+          const canonicalId = citationIds.get(citationId.toUpperCase());
+          if (!canonicalId) return marker;
+          return '<sup class="knowledge-citation"><a href="#' + citationDomId(messageId, canonicalId) + '" aria-label="Reference ' + escapeHtml(canonicalId) + '">[' + escapeHtml(canonicalId) + ']</a></sup>';
         });
         safe = safe.replace(/^### (.+)$/gm, '<strong>$1</strong>');
         safe = safe.replace(/^##? (.+)$/gm, '<strong>$1</strong>');
@@ -1189,16 +1207,17 @@
         const visual = agentVisual(message.agentId);
         const avatar = message.role === 'user' ? '' : '<div class="avatar" data-agent="' + escapeHtml(message.agentId || 'terpedia_agent') + '" style="--agent-color:' + visual.color + '" title="' + escapeHtml(agentNames[message.agentId] || message.meta || 'Terpedia') + '"><i data-lucide="' + visual.icon + '"></i></div>';
         const meta = message.meta ? '<div class="message-meta">' + escapeHtml(message.meta) + '</div>' : '';
-        const sources = renderMessageSources(message.citations || []);
+        const sources = renderMessageSources(message.citations || [], message.id);
         return '<article class="message-row ' + escapeHtml(message.role) + (message.error ? ' error-message' : '') + '"><div class="message-inner">' + avatar +
-          '<div class="message-content">' + attachmentsHtml + renderMarkdown(message.text) + sources + meta + '</div></div></article>';
+          '<div class="message-content">' + attachmentsHtml + renderMarkdown(message.text, message.id, message.citations || []) + sources + meta + '</div></div></article>';
       }
-      function renderMessageSources(items) {
+      function renderMessageSources(items, messageId) {
         const valid = items.map(function (item) { return { id: item.id, title: item.title, url: safeExternalUrl(item.url) }; }).filter(function (item) { return item.url; });
         if (!valid.length) return '';
-        return '<div class="message-sources" aria-label="Sources">' + valid.map(function (item) {
-          return '<a class="message-source" href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener noreferrer">[' + escapeHtml(item.id || 'Source') + '] ' + escapeHtml(item.title || 'Source') + '</a>';
-        }).join('') + '</div>';
+        return '<section class="message-references" aria-label="References"><div class="references-title">References</div><ol class="references-list">' + valid.map(function (item) {
+          const citationId = item.id || 'Source';
+          return '<li class="reference-entry" id="' + citationDomId(messageId, citationId) + '"><a href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener noreferrer"><span class="reference-id">[' + escapeHtml(citationId) + ']</span>' + escapeHtml(item.title || 'Source') + '</a></li>';
+        }).join('') + '</ol></section>';
       }
       function renderMessageAttachments(items) {
         if (!items.length) return '';
