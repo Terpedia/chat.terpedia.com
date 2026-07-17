@@ -940,6 +940,15 @@
       function safeExternalUrl(value) {
         try { const url = new URL(String(value || '')); return /^https?:$/.test(url.protocol) ? url.href : ''; } catch (error) { return ''; }
       }
+      function readerUrl(value) {
+        const safeUrl = safeExternalUrl(value);
+        if (!safeUrl) return '';
+        try {
+          const url = new URL(safeUrl);
+          const match = url.hostname === 'pubmed.ncbi.nlm.nih.gov' && url.pathname.match(/^\/(\d+)(?:\/|$)/);
+          return match ? '/pubmed?pmid=' + encodeURIComponent(match[1]) : safeUrl;
+        } catch (error) { return safeUrl; }
+      }
 
       function citationDomId(messageId, citationId) {
         return 'reference-' + String(messageId || 'message').replace(/[^a-zA-Z0-9_-]/g, '-') + '-' + String(citationId || 'source').replace(/[^a-zA-Z0-9_-]/g, '-');
@@ -1251,7 +1260,7 @@
           '<div class="message-content">' + attachmentsHtml + renderMarkdown(message.text, message.id, message.citations || []) + sources + meta + '</div></div></article>';
       }
       function renderMessageSources(items, messageId) {
-        const valid = items.map(function (item) { return { id: item.id, title: item.title, url: safeExternalUrl(item.url) }; }).filter(function (item) { return item.url; });
+        const valid = items.map(function (item) { return { id: item.id, title: item.title, url: readerUrl(item.url) }; }).filter(function (item) { return item.url; });
         if (!valid.length) return '';
         return '<section class="message-references" aria-label="References"><div class="references-title">References</div><ol class="references-list">' + valid.map(function (item) {
           const citationId = item.id || 'Source';
