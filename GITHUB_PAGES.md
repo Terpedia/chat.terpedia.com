@@ -41,7 +41,7 @@ contain backend code or secrets.
   to Cloud Run with scale-to-zero.
 - The intended public backend host is `https://api.chat.terpedia.com`.
 - Until that DNS/custom domain mapping exists, the checked-in default points to
-  `https://chat-terpedia-backend-nanrsdlaoa-uc.a.run.app`.
+  `https://api.terpedia.com`.
 - You can still override the backend with:
 
 ```text
