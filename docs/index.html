@@ -1089,7 +1089,7 @@
       }
 
       function artifactIcon(type) {
-        return type === 'colab' ? 'notebook-tabs' : type === 'pdf' ? 'file-text' : type === 'docx' ? 'file-type-2' : 'file-code-2';
+        return type === 'colab' ? 'notebook-tabs' : type === 'pdf' ? 'file-text' : type === 'docx' ? 'file-type-2' : type === 'xlsx' ? 'file-spreadsheet' : 'file-code-2';
       }
 
       function payloadProjectArtifacts(payload) {
@@ -1101,6 +1101,7 @@
           const base = payload.manuscript.id || newId();
           if (payload.manuscript.exports.pdf) items.push({ id: 'pdf-' + base, type: 'pdf', title: (payload.manuscript.title || 'Research report') + ' PDF', url: payload.manuscript.exports.pdf, subtitle: 'Revision ' + (payload.manuscript.revision || 1) });
           if (payload.manuscript.exports.docx) items.push({ id: 'docx-' + base, type: 'docx', title: (payload.manuscript.title || 'Research report') + ' DOCX', url: payload.manuscript.exports.docx, subtitle: 'Revision ' + (payload.manuscript.revision || 1) });
+          if (payload.manuscript.exports.xlsx) items.push({ id: 'xlsx-' + base, type: 'xlsx', title: (payload.manuscript.title || 'Research report') + ' XLSX', url: payload.manuscript.exports.xlsx, subtitle: 'Structured manuscript data' });
           if (payload.manuscript.exports.markdown) items.push({ id: 'markdown-' + base, type: 'markdown', title: (payload.manuscript.title || 'Research report') + ' Markdown', url: payload.manuscript.exports.markdown, subtitle: 'Source manuscript' });
         }
         return items.concat(Array.isArray(payload.reports) ? payload.reports.filter(function (item) { return item && item.url; }) : []);
@@ -1160,10 +1161,12 @@
           hydrateIcons();
           return;
         }
-        if (artifact.type === 'docx') {
-          els.projectEmpty.querySelector('p').textContent = 'Download the report as a Word document generated from this saved manuscript revision.';
+        if (artifact.type === 'docx' || artifact.type === 'xlsx') {
+          els.projectEmpty.querySelector('p').textContent = artifact.type === 'xlsx'
+            ? 'Download the report as a structured workbook with provenance and section-level manuscript data.'
+            : 'Download the report as a Word document generated from this saved manuscript revision.';
           els.projectOpen.hidden = false;
-          els.projectOpen.querySelector('span').textContent = 'Download DOCX';
+          els.projectOpen.querySelector('span').textContent = 'Download ' + artifact.type.toUpperCase();
           hydrateIcons();
           return;
         }
@@ -1193,12 +1196,12 @@
           window.open(safeExternalUrl(artifact.url), '_blank', 'noopener,noreferrer');
           return;
         }
-        if (artifact.type === 'docx') {
+        if (artifact.type === 'docx' || artifact.type === 'xlsx') {
           const response = await fetchProjectArtifact(artifact);
           const url = URL.createObjectURL(await response.blob());
           const link = document.createElement('a');
           link.href = url;
-          link.download = artifact.title.replace(/\s+DOCX$/i, '') + '.docx';
+          link.download = artifact.title.replace(/\s+(DOCX|XLSX)$/i, '') + '.' + artifact.type;
           link.click();
           setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
           return;
@@ -1555,7 +1558,7 @@
       function renderProjectActions(items, messageId) {
         if (!items.length) return '';
         return '<div class="project-actions">' + items.map(function (artifact) {
-          const command = artifact.type === 'docx' ? 'Download' : 'Open';
+          const command = artifact.type === 'docx' || artifact.type === 'xlsx' ? 'Download' : 'Open';
           return '<button class="project-action" type="button" data-project-message="' + escapeHtml(messageId) + '" data-project-artifact="' + escapeHtml(artifact.id) + '"><i data-lucide="' + artifactIcon(artifact.type) + '"></i><span>' + command + ' ' + escapeHtml(artifact.type === 'colab' ? 'Colab' : artifact.type.toUpperCase()) + '</span></button>';
         }).join('') + '</div>';
       }
