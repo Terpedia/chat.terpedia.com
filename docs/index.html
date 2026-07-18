@@ -681,6 +681,27 @@
     .storage-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--line); border-radius: 7px; padding: 10px; }
     .storage-row span { min-width: 0; color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .storage-row button { min-height: 34px; flex: 0 0 auto; border: 1px solid var(--line); border-radius: 7px; background: var(--canvas); padding: 0 11px; font-weight: 600; font-size: 12px; }
+    .auth-body { display: grid; gap: 12px; padding: 18px; }
+    .auth-provider {
+      width: 100%;
+      min-height: 46px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--ink);
+      color: var(--canvas);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .auth-provider:hover { background: var(--brand-strong); color: #fff; }
+    .auth-provider:disabled { background: var(--surface-strong); color: var(--muted); cursor: not-allowed; }
+    .auth-provider .icon { width: 17px; height: 17px; }
+    .auth-account { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); padding: 10px; }
+    .auth-account span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 12px; }
+    .auth-account button { min-height: 34px; border: 1px solid var(--line); border-radius: 5px; background: var(--canvas); padding: 0 11px; font-size: 11px; font-weight: 700; }
     .composer-source-button { flex: 0 0 34px; }
     .picker-tools { display: flex; gap: 8px; padding: 12px 18px; border-bottom: 1px solid var(--line); }
     .picker-tools input { min-width: 0; flex: 1; min-height: 38px; border: 1px solid var(--line); border-radius: 7px; background: var(--canvas); color: var(--ink); padding: 0 10px; }
@@ -820,7 +841,7 @@
         <div class="chat-heading"><strong id="active-title">New chat</strong><span id="active-subtitle">Auto-routed Terpedia agents</span></div>
         <div class="top-controls">
           <label class="rag-toggle" title="Use retrieval-augmented generation"><input id="use-rag" type="checkbox" checked><span>RAG</span></label>
-          <div class="guest-session" id="guest-session" title="Guest time starts with your first message"><span class="guest-session-label">Guest</span><time class="guest-countdown" id="guest-countdown" datetime="PT1H">1:00:00</time><button class="join-button" id="join" type="button">Join</button></div>
+          <div class="guest-session" id="guest-session" title="Guest time starts with your first message"><span class="guest-session-label">Guest</span><time class="guest-countdown" id="guest-countdown" datetime="PT1H">1:00:00</time><button class="join-button" id="join" type="button">Sign in</button></div>
           <button class="icon-button" id="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode"><i data-lucide="moon"></i></button>
           <div class="layout-control">
             <button class="icon-button" id="workspace-layout" type="button" aria-label="Arrange workspace" title="Arrange workspace" aria-expanded="false"><i data-lucide="panels-top-left"></i></button>
@@ -886,9 +907,17 @@
       <div class="field"><label for="model">Model</label><select id="model"><option value="">Gemini default</option><option value="gemini-2.5-flash">Gemini 2.5 Flash</option><option value="gemini-2.5-pro">Gemini 2.5 Pro</option></select></div>
       <div class="field"><label for="theme">Appearance</label><select id="theme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></div>
       <div class="field"><label for="api-base">Backend API</label><input id="api-base" type="url" autocomplete="off" spellcheck="false"></div>
-      <div class="field" id="github-storage" hidden><label>Cloud storage</label><div class="storage-row"><span id="github-status">GitHub not connected</span><button id="github-connect" type="button">Connect GitHub</button></div></div>
+      <div class="field"><label>Account</label><div class="storage-row"><span id="account-status">Guest</span><button id="account-action" type="button">Sign in</button></div></div>
+      <div class="field" id="github-storage" hidden><label>GitHub project storage</label><div class="storage-row"><span id="github-status">Checking GitHub</span><button id="github-connect" type="button">Sync now</button></div></div>
       <div class="field" id="google-storage" hidden><label>Google Workspace</label><div class="storage-row"><span id="google-status">Google Drive not connected</span><button id="google-connect" type="button">Connect Google</button></div></div>
       <div class="settings-status" id="status"><strong>Ready.</strong> Agent routing, RAG, PDF text, and image analysis run through the Terpedia backend.</div>
+    </div>
+  </dialog>
+  <dialog id="auth-dialog">
+    <div class="dialog-head"><h2>Sign in to Terpedia</h2><button class="icon-button" id="close-auth" type="button" aria-label="Close sign in"><i data-lucide="x"></i></button></div>
+    <div class="auth-body">
+      <button class="auth-provider" id="github-signin" type="button"><i data-lucide="github"></i><span>Continue with GitHub</span></button>
+      <div class="auth-account" id="signed-in-account" hidden><span id="signed-in-status">Signed in</span><button id="sign-out" type="button">Sign out</button></div>
     </div>
   </dialog>
   <dialog id="google-picker-dialog">
@@ -965,6 +994,7 @@
         'camera-input', 'product-photo-input', 'coa-input', 'pdf-input',
         'attachment-tray', 'settings-dialog', 'open-settings', 'top-settings', 'close-settings', 'open-sidebar', 'close-sidebar',
         'sidebar-overlay', 'connection-dot', 'theme-toggle', 'theme', 'github-storage', 'github-status', 'github-connect',
+        'account-status', 'account-action', 'auth-dialog', 'close-auth', 'github-signin', 'signed-in-account', 'signed-in-status', 'sign-out',
         'guest-session', 'guest-countdown', 'join',
         'workspace', 'workspace-layout', 'layout-menu', 'project-pane', 'project-title', 'project-subtitle', 'project-tabs',
         'project-frame', 'project-text', 'project-empty', 'project-open', 'project-external', 'close-project',
@@ -1008,6 +1038,7 @@
       let projectArtifacts = [];
       let activeProjectArtifactId = null;
       let projectObjectUrl = '';
+      let githubAuthEnabled = false;
       const utcDayStart = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate());
       if (guestSessionEndsAt && guestSessionEndsAt < utcDayStart) {
         guestSessionEndsAt = 0;
@@ -1344,21 +1375,57 @@
       function acceptGithubCallback() {
         const fragment = new URLSearchParams(location.hash.replace(/^#/, ''));
         const token = fragment.get('github_token');
+        const callback = params.get('github');
         if (token) {
           localStorage.setItem(AUTH_KEY, token);
           localStorage.removeItem(GUEST_SESSION_END_KEY);
           guestSessionEndsAt = 0;
           memberAllowance = null;
           history.replaceState(null, '', location.pathname + location.search.replace(/([?&])github=[^&]*/g, '$1').replace(/[?&]$/, ''));
-          showToast('GitHub connected. Conversation history will sync privately.');
+          showToast('Signed in with GitHub.');
           renderGuestCountdown();
+        } else if (callback === 'error') {
+          showToast('GitHub sign-in failed' + (params.get('reason') ? ': ' + params.get('reason') : '.'));
         }
+        updateAccountUi();
+      }
+      function sessionIdentity() {
+        const token = authToken();
+        if (!token) return null;
+        try {
+          const value = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+          return JSON.parse(atob(value + '='.repeat((4 - value.length % 4) % 4)));
+        } catch (error) { return null; }
+      }
+      function updateAccountUi() {
+        const identity = sessionIdentity();
+        const signedIn = Boolean(authToken());
+        const label = identity && (identity.githubLogin || identity.name || identity.email) ? (identity.githubLogin || identity.name || identity.email) : 'GitHub account';
+        els.accountStatus.textContent = signedIn ? 'Signed in as ' + label : 'Guest';
+        els.accountAction.textContent = signedIn ? 'Account' : 'Sign in';
+        els.githubSignin.hidden = signedIn;
+        els.githubSignin.disabled = !githubAuthEnabled;
+        els.githubSignin.title = githubAuthEnabled ? 'Continue with GitHub' : 'GitHub sign-in is being configured';
+        els.signedInAccount.hidden = !signedIn;
+        els.signedInStatus.textContent = signedIn ? 'Signed in as ' + label : '';
+      }
+      function openAuthDialog() { updateAccountUi(); els.authDialog.showModal(); }
+      function signOut() {
+        localStorage.removeItem(AUTH_KEY);
+        memberAllowance = null;
+        els.authDialog.close();
+        els.githubStorage.hidden = true;
+        updateAccountUi();
+        renderGuestCountdown();
+        showToast('Signed out.');
       }
       async function configureGithubStorage() {
         const apiBase = normalizeBase(els.apiBase.value);
         try {
           const config = await fetch(apiBase + '/api/github/config').then(function (response) { return response.json(); });
-          els.githubStorage.hidden = !config.enabled;
+          githubAuthEnabled = Boolean(config.enabled && config.authentication);
+          updateAccountUi();
+          els.githubStorage.hidden = !config.enabled || !authToken();
           if (!config.enabled) return;
           if (!authToken()) return;
           const response = await fetch(apiBase + '/api/github/status', { headers: apiHeaders() });
@@ -1934,7 +2001,11 @@
         if (authToken()) syncGithubHistory(conversations).catch(function (error) { showToast(error.message); });
         else location.href = normalizeBase(els.apiBase.value) + '/api/github/connect';
       });
-      els.join.addEventListener('click', function () { location.href = normalizeBase(els.apiBase.value) + '/api/github/connect'; });
+      els.join.addEventListener('click', openAuthDialog);
+      els.accountAction.addEventListener('click', openAuthDialog);
+      els.closeAuth.addEventListener('click', function () { els.authDialog.close(); });
+      els.githubSignin.addEventListener('click', function () { location.href = normalizeBase(els.apiBase.value) + '/api/github/connect'; });
+      els.signOut.addEventListener('click', signOut);
       matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () { if ((localStorage.getItem(THEME_KEY) || 'system') === 'system') applyTheme('system', false); });
       [els.openSettings, els.topSettings].forEach(function (button) { button.addEventListener('click', function () { els.settingsDialog.showModal(); }); });
       els.closeSettings.addEventListener('click', function () { els.settingsDialog.close(); });
