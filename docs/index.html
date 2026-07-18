@@ -407,6 +407,9 @@
 
     .message-attachments { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 9px; }
     .message-image { width: 148px; aspect-ratio: 4 / 3; border-radius: 7px; object-fit: cover; border: 1px solid var(--line); }
+    .chemistry-figure { width: min(520px, 100%); margin: 0; }
+    .chemistry-figure .message-image { width: 100%; height: auto; aspect-ratio: auto; object-fit: contain; background: #fff; }
+    .chemistry-figure figcaption { margin-top: 4px; color: var(--muted); font-family: Montserrat, system-ui, sans-serif; font-size: 10px; }
     .file-chip {
       max-width: 260px;
       height: 42px;
@@ -1309,6 +1312,7 @@
       function renderMessageAttachments(items) {
         if (!items.length) return '';
         return '<div class="message-attachments">' + items.map(function (item) {
+          if (item.kind === 'image' && item.previewUrl && item.chemistry) return '<figure class="chemistry-figure"><img class="message-image" src="' + escapeHtml(item.previewUrl) + '" alt="' + escapeHtml(item.alt || item.name) + '"><figcaption>' + escapeHtml(item.name) + '</figcaption></figure>';
           if (item.kind === 'image' && item.previewUrl) return '<img class="message-image" src="' + item.previewUrl + '" alt="' + escapeHtml(item.name) + '">';
           return '<div class="file-chip"><i data-lucide="' + (item.kind === 'image' ? 'image' : 'file-text') + '"></i><span>' + escapeHtml(item.name) + '</span></div>';
         }).join('') + '</div>';
@@ -1488,6 +1492,22 @@
         if (payload.usage && payload.usage.total_tokens) pieces.push(payload.usage.total_tokens + ' tokens');
         return pieces.join(' · ') || 'Terpedia';
       }
+      function chemistryAttachments(payload) {
+        const artifacts = payload.chemistry && Array.isArray(payload.chemistry.artifacts) ? payload.chemistry.artifacts : [];
+        return artifacts.filter(function (artifact) {
+          return artifact.mime_type === 'image/svg+xml' && typeof artifact.content === 'string' && artifact.content.includes('<svg');
+        }).map(function (artifact, index) {
+          return {
+            id: 'chemistry-' + Date.now() + '-' + index,
+            name: artifact.title || 'RDKit molecular illustration',
+            alt: artifact.alt || artifact.title || 'Computed molecular structure',
+            kind: 'image',
+            type: 'image/svg+xml',
+            chemistry: true,
+            previewUrl: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(artifact.content)
+          };
+        });
+      }
       function setBusy(next, isError) {
         busy = next;
         els.send.disabled = next;
@@ -1528,7 +1548,7 @@
           (payload.participant_responses || []).forEach(function (participant) {
             addMessage('assistant', participant.response || '', participant.name || agentNames[participant.agent] || participant.agent, [], false, participant.agent);
           });
-          addMessage('assistant', payload.response || 'No response text returned.', summarizePayload(payload), [], false, payload.panel ? 'panel_moderator' : payload.agent, payload.rag?.citations || []);
+          addMessage('assistant', payload.response || 'No response text returned.', summarizePayload(payload), chemistryAttachments(payload), false, payload.panel ? 'panel_moderator' : payload.agent, payload.rag?.citations || []);
           if (payload.workspace_action) showWorkspacePreview(payload.workspace_action);
           setBusy(false, false);
           setStatus('Ready.', 'Last response returned from ' + (payload.agent_display_name || payload.agent || 'the backend') + '.');
