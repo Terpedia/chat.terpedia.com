@@ -1508,6 +1508,13 @@
           };
         });
       }
+      function responseCitations(payload) {
+        const rag = payload.rag && Array.isArray(payload.rag.citations) ? payload.rag.citations : [];
+        const chemistry = payload.chemistry && payload.chemistry.report && Array.isArray(payload.chemistry.report.sources) ? payload.chemistry.report.sources : [];
+        return rag.concat(chemistry).filter(function (citation, index, all) {
+          return citation && citation.url && all.findIndex(function (candidate) { return candidate && candidate.url === citation.url; }) === index;
+        });
+      }
       function setBusy(next, isError) {
         busy = next;
         els.send.disabled = next;
@@ -1548,7 +1555,7 @@
           (payload.participant_responses || []).forEach(function (participant) {
             addMessage('assistant', participant.response || '', participant.name || agentNames[participant.agent] || participant.agent, [], false, participant.agent);
           });
-          addMessage('assistant', payload.response || 'No response text returned.', summarizePayload(payload), chemistryAttachments(payload), false, payload.panel ? 'panel_moderator' : payload.agent, payload.rag?.citations || []);
+          addMessage('assistant', payload.response || 'No response text returned.', summarizePayload(payload), chemistryAttachments(payload), false, payload.panel ? 'panel_moderator' : payload.agent, responseCitations(payload));
           if (payload.workspace_action) showWorkspacePreview(payload.workspace_action);
           setBusy(false, false);
           setStatus('Ready.', 'Last response returned from ' + (payload.agent_display_name || payload.agent || 'the backend') + '.');
