@@ -886,6 +886,7 @@
       let pendingWorkspaceAction = null;
       let googleWorkspaceConnected = false;
       let guestSessionEndsAt = Number(localStorage.getItem(GUEST_SESSION_END_KEY) || 0);
+      let memberAllowance = null;
       let guestCountdownTimer = null;
       const utcDayStart = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate());
       if (guestSessionEndsAt && guestSessionEndsAt < utcDayStart) {
@@ -1031,16 +1032,31 @@
       }
       function renderGuestCountdown() {
         if (authToken()) {
-          els.guestSession.hidden = true;
+          els.guestSession.hidden = false;
+          els.join.hidden = true;
+          const tier = memberAllowance && memberAllowance.tier ? memberAllowance.tier : 'registered';
+          els.guestSession.querySelector('.guest-session-label').textContent = tier === 'registered' ? 'Member' : tier.charAt(0).toUpperCase() + tier.slice(1);
+          els.guestCountdown.textContent = memberAllowance && Number.isFinite(memberAllowance.ordinary_requests_remaining)
+            ? memberAllowance.ordinary_requests_remaining + ' left'
+            : 'Included';
+          els.guestCountdown.classList.remove('ended');
+          els.guestSession.title = memberAllowance
+            ? 'Approximate ordinary answers remaining in this ' + memberAllowance.window + ' allowance'
+            : 'Member allowance';
           return;
         }
         els.guestSession.hidden = false;
+        els.join.hidden = false;
+        els.guestSession.querySelector('.guest-session-label').textContent = 'Guest';
         const hasStarted = Number.isFinite(guestSessionEndsAt) && guestSessionEndsAt > 0;
         const seconds = hasStarted ? Math.max(0, Math.ceil((guestSessionEndsAt - Date.now()) / 1000)) : 3600;
         els.guestCountdown.textContent = seconds === 0 && hasStarted ? 'Ended' : formatCountdown(seconds);
         els.guestCountdown.classList.toggle('ended', seconds === 0 && hasStarted);
         els.guestCountdown.dateTime = 'PT' + seconds + 'S';
-        els.guestSession.title = hasStarted ? 'Guest session time remaining' : 'Guest time starts with your first message';
+        const allowanceText = memberAllowance && Number.isFinite(memberAllowance.ordinary_requests_remaining)
+          ? ' · about ' + memberAllowance.ordinary_requests_remaining + ' ordinary answers left today'
+          : '';
+        els.guestSession.title = (hasStarted ? 'Guest session time remaining' : 'Guest time starts with your first message') + allowanceText;
       }
       function startGuestCountdown() {
         clearInterval(guestCountdownTimer);
@@ -1048,7 +1064,18 @@
         guestCountdownTimer = setInterval(renderGuestCountdown, 1000);
       }
       function captureGuestSession(response, payload) {
-        if (authToken()) return;
+        const payloadAllowance = payload && payload.allowance;
+        const headerRemainingValue = response.headers.get('X-Terpedia-Ordinary-Requests-Remaining');
+        const headerRemaining = headerRemainingValue == null ? NaN : Number(headerRemainingValue);
+        const headerTier = response.headers.get('X-RateLimit-Tier');
+        if (payloadAllowance) memberAllowance = payloadAllowance;
+        else if (Number.isFinite(headerRemaining)) {
+          memberAllowance = { tier: headerTier || (authToken() ? 'registered' : 'anonymous'), window: authToken() ? 'monthly' : 'daily', ordinary_requests_remaining: headerRemaining };
+        }
+        if (authToken()) {
+          renderGuestCountdown();
+          return;
+        }
         const headerValue = response.headers.get('X-RateLimit-Session-Ends');
         const payloadValue = payload && payload.session && payload.session.endsAt;
         const parsed = headerValue ? Date.parse(headerValue) : Number(payloadValue || 0);
@@ -1064,8 +1091,10 @@
           localStorage.setItem(AUTH_KEY, token);
           localStorage.removeItem(GUEST_SESSION_END_KEY);
           guestSessionEndsAt = 0;
+          memberAllowance = null;
           history.replaceState(null, '', location.pathname + location.search.replace(/([?&])github=[^&]*/g, '$1').replace(/[?&]$/, ''));
           showToast('GitHub connected. Conversation history will sync privately.');
+          renderGuestCountdown();
         }
       }
       async function configureGithubStorage() {
