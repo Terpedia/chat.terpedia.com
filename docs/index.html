@@ -108,6 +108,30 @@
 
     .app { height: 100dvh; display: flex; }
 
+    .workspace {
+      flex: 1;
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr);
+      grid-template-areas: "chat";
+      background: var(--line);
+      gap: 1px;
+    }
+    .workspace[data-layout="right"] { grid-template-columns: minmax(360px, 1fr) clamp(360px, 42vw, 760px); grid-template-areas: "chat project"; }
+    .workspace[data-layout="left"] { grid-template-columns: clamp(360px, 42vw, 760px) minmax(360px, 1fr); grid-template-areas: "project chat"; }
+    .workspace[data-layout="bottom"] { grid-template-rows: minmax(300px, 1fr) clamp(260px, 42vh, 560px); grid-template-areas: "project" "chat"; }
+    .workspace:not([data-layout="chat"]) .chat-heading { display: none; }
+    .workspace:not([data-layout="chat"]) #top-settings { display: none; }
+    .workspace:not([data-layout="chat"]) .guest-session-label { display: none; }
+    .workspace:not([data-layout="chat"]) .topbar { padding-inline: 8px; gap: 7px; }
+    .workspace[data-layout="bottom"] .empty-state { min-height: 100%; padding: 8px 16px 116px; }
+    .workspace[data-layout="bottom"] .empty-inner img,
+    .workspace[data-layout="bottom"] .empty-inner p,
+    .workspace[data-layout="bottom"] .suggestions { display: none; }
+    .workspace[data-layout="bottom"] .empty-inner h1 { margin: 0; font-size: 19px; }
+
     .sidebar {
       width: var(--sidebar-width);
       flex: 0 0 var(--sidebar-width);
@@ -238,7 +262,7 @@
     }
     .sidebar-action:hover { background: var(--sidebar-hover); }
 
-    .main { flex: 1; min-width: 0; height: 100dvh; display: flex; flex-direction: column; }
+    .main { grid-area: chat; position: relative; min-width: 0; min-height: 0; height: auto; display: flex; flex-direction: column; background: var(--canvas); }
     .topbar {
       height: var(--topbar-height);
       flex: 0 0 var(--topbar-height);
@@ -264,6 +288,23 @@
     .chat-heading span { display: block; color: var(--muted); font-family: Montserrat, system-ui, sans-serif; font-size: 10px; margin-top: 2px; letter-spacing: 0; }
 
     .top-controls { display: flex; align-items: center; gap: 8px; }
+    .layout-control { position: relative; }
+    .layout-menu {
+      position: absolute;
+      top: calc(100% + 7px);
+      right: 0;
+      z-index: 45;
+      display: flex;
+      gap: 3px;
+      margin: 0;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--canvas);
+      padding: 4px;
+      box-shadow: 0 10px 30px var(--shadow);
+    }
+    .layout-menu[hidden] { display: none; }
+    .layout-menu .icon-button.active { color: var(--brand-strong); background: var(--surface-strong); }
     .compact-select {
       height: 34px;
       max-width: 210px;
@@ -383,6 +424,22 @@
     .message-content :not(pre) > code { background: var(--surface-strong); border-radius: 4px; padding: 2px 4px; }
     .message-content ul { padding-left: 20px; }
     .message-meta { color: var(--muted); font-family: Montserrat, system-ui, sans-serif; font-size: 10px; margin-top: 8px; letter-spacing: 0; }
+    .project-actions { display: flex; flex-wrap: wrap; gap: 7px; margin: 12px 0 2px; }
+    .project-action {
+      min-height: 34px;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: var(--surface);
+      color: var(--ink);
+      padding: 0 10px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .project-action:hover { border-color: var(--brand); background: var(--surface-strong); }
+    .project-action .icon { width: 15px; height: 15px; color: var(--brand-strong); }
     .knowledge-citation { margin-left: 2px; font-family: Montserrat, system-ui, sans-serif; font-size: 0.68em; line-height: 0; vertical-align: super; }
     .knowledge-citation a { color: var(--brand-strong); text-decoration: none; }
     .knowledge-citation a:hover { text-decoration: underline; }
@@ -427,7 +484,7 @@
 
     .composer-area {
       position: absolute;
-      left: var(--sidebar-width);
+      left: 0;
       right: 0;
       bottom: 0;
       z-index: 12;
@@ -660,9 +717,39 @@
     }
     .agent-mark .icon { width: 15px; height: 15px; }
 
+    .project-pane { grid-area: project; min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--canvas); }
+    .project-pane[hidden] { display: none; }
+    .project-head { min-height: var(--topbar-height); display: flex; align-items: center; gap: 9px; padding: 0 10px 0 14px; border-bottom: 1px solid var(--line); background: var(--topbar-bg); }
+    .project-heading { min-width: 0; flex: 1; }
+    .project-heading strong, .project-heading span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .project-heading strong { font-family: "Playfair Display", Georgia, serif; font-size: 14px; font-weight: 500; }
+    .project-heading span { margin-top: 2px; color: var(--muted); font: 10px/1.2 Montserrat, system-ui, sans-serif; }
+    .project-tabs { min-height: 39px; display: flex; gap: 2px; overflow-x: auto; border-bottom: 1px solid var(--line); padding: 4px 7px; background: var(--surface); }
+    .project-tab { max-width: 220px; min-height: 30px; display: inline-flex; align-items: center; gap: 6px; border: 0; border-radius: 4px; background: transparent; padding: 0 9px; font-size: 10px; white-space: nowrap; }
+    .project-tab span { overflow: hidden; text-overflow: ellipsis; }
+    .project-tab.active { background: var(--canvas); color: var(--brand-strong); }
+    .project-tab .icon { width: 13px; height: 13px; }
+    .project-view { position: relative; flex: 1; min-height: 0; background: var(--surface); }
+    .project-frame { width: 100%; height: 100%; border: 0; background: #fff; }
+    .project-frame[hidden], .project-text[hidden], .project-empty[hidden] { display: none; }
+    .project-text { width: 100%; height: 100%; overflow: auto; margin: 0; padding: 20px; color: var(--ink); background: var(--canvas); font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; }
+    .project-empty { height: 100%; display: grid; place-items: center; padding: 24px; text-align: center; }
+    .project-empty-inner { max-width: 360px; }
+    .project-empty .icon { width: 30px; height: 30px; color: var(--brand); }
+    .project-empty strong { display: block; margin-top: 10px; font-family: "Playfair Display", Georgia, serif; font-size: 17px; font-weight: 500; }
+    .project-empty p { margin: 7px 0 14px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .project-open { min-height: 36px; display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--brand); border-radius: 5px; background: var(--brand); color: #fff; padding: 0 12px; font-size: 11px; font-weight: 700; }
+    .project-open[hidden] { display: none; }
+    .project-open:hover { background: var(--brand-strong); }
+
     .sidebar-overlay { display: none; }
 
     @media (max-width: 820px) {
+      .workspace[data-layout="right"], .workspace[data-layout="left"], .workspace[data-layout="bottom"] {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(260px, 1fr) minmax(230px, 42vh);
+        grid-template-areas: "project" "chat";
+      }
       .sidebar {
         position: fixed;
         inset: 0 auto 0 0;
@@ -726,7 +813,8 @@
     </aside>
     <button class="sidebar-overlay" id="sidebar-overlay" type="button" aria-label="Close conversations"></button>
 
-    <main class="main">
+    <div class="workspace" id="workspace" data-layout="chat">
+    <main class="main" id="chat-pane">
       <header class="topbar">
         <button class="icon-button mobile-menu" id="open-sidebar" type="button" aria-label="Open conversations" title="Open conversations"><i data-lucide="panel-left"></i></button>
         <div class="chat-heading"><strong id="active-title">New chat</strong><span id="active-subtitle">Auto-routed Terpedia agents</span></div>
@@ -734,6 +822,15 @@
           <label class="rag-toggle" title="Use retrieval-augmented generation"><input id="use-rag" type="checkbox" checked><span>RAG</span></label>
           <div class="guest-session" id="guest-session" title="Guest time starts with your first message"><span class="guest-session-label">Guest</span><time class="guest-countdown" id="guest-countdown" datetime="PT1H">1:00:00</time><button class="join-button" id="join" type="button">Join</button></div>
           <button class="icon-button" id="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode"><i data-lucide="moon"></i></button>
+          <div class="layout-control">
+            <button class="icon-button" id="workspace-layout" type="button" aria-label="Arrange workspace" title="Arrange workspace" aria-expanded="false"><i data-lucide="panels-top-left"></i></button>
+            <menu class="layout-menu" id="layout-menu" hidden>
+              <button class="icon-button" type="button" data-layout="chat" aria-label="Chat only" title="Chat only"><i data-lucide="panel-top"></i></button>
+              <button class="icon-button" type="button" data-layout="left" aria-label="Project on left" title="Project on left"><i data-lucide="panel-left"></i></button>
+              <button class="icon-button" type="button" data-layout="right" aria-label="Project on right" title="Project on right"><i data-lucide="panel-right"></i></button>
+              <button class="icon-button" type="button" data-layout="bottom" aria-label="Chat at bottom" title="Chat at bottom"><i data-lucide="panel-bottom"></i></button>
+            </menu>
+          </div>
           <button class="icon-button" id="top-settings" type="button" aria-label="Open settings" title="Settings"><i data-lucide="sliders-horizontal"></i></button>
           <span class="connection-dot" id="connection-dot" title="Ready"></span>
         </div>
@@ -767,6 +864,20 @@
         </div>
       </section>
     </main>
+    <section class="project-pane" id="project-pane" aria-label="Project workspace" hidden>
+      <header class="project-head">
+        <div class="project-heading"><strong id="project-title">Project</strong><span id="project-subtitle">Research artifacts</span></div>
+        <button class="icon-button" id="project-external" type="button" aria-label="Open artifact in a new tab" title="Open in new tab" hidden><i data-lucide="external-link"></i></button>
+        <button class="icon-button" id="close-project" type="button" aria-label="Close project workspace" title="Close project workspace"><i data-lucide="x"></i></button>
+      </header>
+      <nav class="project-tabs" id="project-tabs" aria-label="Project artifacts"></nav>
+      <div class="project-view">
+        <iframe class="project-frame" id="project-frame" title="Project artifact" hidden></iframe>
+        <pre class="project-text" id="project-text" hidden></pre>
+        <div class="project-empty" id="project-empty"><div class="project-empty-inner"><i data-lucide="folder-kanban"></i><strong>Project workspace</strong><p>Colab notebooks and report exports from this conversation appear here.</p><button class="project-open" id="project-open" type="button" hidden><i data-lucide="external-link"></i><span>Open</span></button></div></div>
+      </div>
+    </section>
+    </div>
   </div>
 
   <dialog id="settings-dialog">
@@ -810,6 +921,7 @@
       const THEME_KEY = 'terpedia_chat_theme';
       const AUTH_KEY = 'terpedia_chat_auth_token';
       const GUEST_SESSION_END_KEY = 'terpedia_guest_session_ends_at';
+      const LAYOUT_KEY = 'terpedia_chat_workspace_layout';
       const MAX_IMAGES = 3;
       const MAX_DOCUMENTS = 3;
       const MAX_PDF_BYTES = 15 * 1024 * 1024;
@@ -854,6 +966,8 @@
         'attachment-tray', 'settings-dialog', 'open-settings', 'top-settings', 'close-settings', 'open-sidebar', 'close-sidebar',
         'sidebar-overlay', 'connection-dot', 'theme-toggle', 'theme', 'github-storage', 'github-status', 'github-connect',
         'guest-session', 'guest-countdown', 'join',
+        'workspace', 'workspace-layout', 'layout-menu', 'project-pane', 'project-title', 'project-subtitle', 'project-tabs',
+        'project-frame', 'project-text', 'project-empty', 'project-open', 'project-external', 'close-project',
         'google-storage', 'google-status', 'google-connect', 'google-drive', 'google-picker-dialog', 'close-google-picker',
         'google-picker-search', 'google-file-query', 'google-file-list', 'workspace-confirm-dialog', 'close-workspace-confirm',
         'workspace-preview', 'cancel-workspace-write', 'confirm-workspace-write', 'toast'].forEach(function (id) {
@@ -891,6 +1005,9 @@
       let guestSessionEndsAt = Number(localStorage.getItem(GUEST_SESSION_END_KEY) || 0);
       let memberAllowance = null;
       let guestCountdownTimer = null;
+      let projectArtifacts = [];
+      let activeProjectArtifactId = null;
+      let projectObjectUrl = '';
       const utcDayStart = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate());
       if (guestSessionEndsAt && guestSessionEndsAt < utcDayStart) {
         guestSessionEndsAt = 0;
@@ -907,6 +1024,7 @@
       startGuestCountdown();
       configureGithubStorage();
       configureGoogleWorkspace();
+      setWorkspaceLayout(localStorage.getItem(LAYOUT_KEY) || 'chat', false);
 
       function hydrateIcons() {
         if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons({ attrs: { 'aria-hidden': 'true', class: 'icon' } });
@@ -954,6 +1072,139 @@
           const trialMatch = /(?:^|\.)clinicaltrials\.gov$/.test(url.hostname) && url.pathname.match(/^\/study\/(NCT\d{8})(?:\/|$)/i);
           return trialMatch ? '/clinicaltrials?nct=' + encodeURIComponent(trialMatch[1].toUpperCase()) : safeUrl;
         } catch (error) { return safeUrl; }
+      }
+
+      function setWorkspaceLayout(layout, persistLayout) {
+        const allowed = ['chat', 'left', 'right', 'bottom'];
+        const next = allowed.includes(layout) ? layout : 'chat';
+        els.workspace.dataset.layout = next;
+        els.projectPane.hidden = next === 'chat';
+        els.layoutMenu.hidden = true;
+        els.workspaceLayout.setAttribute('aria-expanded', 'false');
+        Array.from(els.layoutMenu.querySelectorAll('[data-layout]')).forEach(function (button) {
+          button.classList.toggle('active', button.dataset.layout === next);
+        });
+        if (persistLayout !== false) localStorage.setItem(LAYOUT_KEY, next);
+        requestAnimationFrame(scrollToBottom);
+      }
+
+      function artifactIcon(type) {
+        return type === 'colab' ? 'notebook-tabs' : type === 'pdf' ? 'file-text' : type === 'docx' ? 'file-type-2' : 'file-code-2';
+      }
+
+      function payloadProjectArtifacts(payload) {
+        const items = [];
+        if (payload.notebook && payload.notebook.colab_url) {
+          items.push({ id: 'colab-' + payload.notebook.id, type: 'colab', title: payload.notebook.title || 'Colab notebook', url: payload.notebook.colab_url, subtitle: payload.notebook.repository || 'Google Colab' });
+        }
+        if (payload.manuscript && payload.manuscript.exports) {
+          const base = payload.manuscript.id || newId();
+          if (payload.manuscript.exports.pdf) items.push({ id: 'pdf-' + base, type: 'pdf', title: (payload.manuscript.title || 'Research report') + ' PDF', url: payload.manuscript.exports.pdf, subtitle: 'Revision ' + (payload.manuscript.revision || 1) });
+          if (payload.manuscript.exports.docx) items.push({ id: 'docx-' + base, type: 'docx', title: (payload.manuscript.title || 'Research report') + ' DOCX', url: payload.manuscript.exports.docx, subtitle: 'Revision ' + (payload.manuscript.revision || 1) });
+          if (payload.manuscript.exports.markdown) items.push({ id: 'markdown-' + base, type: 'markdown', title: (payload.manuscript.title || 'Research report') + ' Markdown', url: payload.manuscript.exports.markdown, subtitle: 'Source manuscript' });
+        }
+        return items.concat(Array.isArray(payload.reports) ? payload.reports.filter(function (item) { return item && item.url; }) : []);
+      }
+
+      function syncProjectArtifacts() {
+        const conversation = activeConversation();
+        const all = conversation ? conversation.messages.flatMap(function (message) { return message.projectArtifacts || []; }) : [];
+        projectArtifacts = all.filter(function (item, index) { return item && item.id && all.findIndex(function (candidate) { return candidate.id === item.id; }) === index; });
+        if (activeProjectArtifactId && !projectArtifacts.some(function (item) { return item.id === activeProjectArtifactId; })) activeProjectArtifactId = null;
+        renderProjectTabs();
+      }
+
+      function renderProjectTabs() {
+        els.projectTabs.innerHTML = projectArtifacts.map(function (artifact) {
+          return '<button class="project-tab' + (artifact.id === activeProjectArtifactId ? ' active' : '') + '" type="button" data-project-tab="' + escapeHtml(artifact.id) + '" title="' + escapeHtml(artifact.title) + '"><i data-lucide="' + artifactIcon(artifact.type) + '"></i><span>' + escapeHtml(artifact.title) + '</span></button>';
+        }).join('');
+        hydrateIcons();
+      }
+
+      function clearProjectView() {
+        if (projectObjectUrl) URL.revokeObjectURL(projectObjectUrl);
+        projectObjectUrl = '';
+        els.projectFrame.removeAttribute('src');
+        els.projectFrame.hidden = true;
+        els.projectText.hidden = true;
+        els.projectText.textContent = '';
+        els.projectEmpty.hidden = false;
+        els.projectOpen.hidden = true;
+        els.projectExternal.hidden = true;
+      }
+
+      function activeProjectArtifact() {
+        return projectArtifacts.find(function (item) { return item.id === activeProjectArtifactId; });
+      }
+
+      async function fetchProjectArtifact(artifact) {
+        const response = await fetch(safeExternalUrl(artifact.url), { headers: apiHeaders() });
+        if (!response.ok) throw new Error('The project artifact could not be opened.');
+        return response;
+      }
+
+      async function showProjectArtifact(artifactId) {
+        const artifact = projectArtifacts.find(function (item) { return item.id === artifactId; });
+        if (!artifact) return;
+        activeProjectArtifactId = artifact.id;
+        if (els.workspace.dataset.layout === 'chat') setWorkspaceLayout('right', true);
+        clearProjectView();
+        els.projectTitle.textContent = artifact.title;
+        els.projectSubtitle.textContent = artifact.subtitle || artifact.type.toUpperCase();
+        renderProjectTabs();
+        if (artifact.type === 'colab') {
+          els.projectEmpty.querySelector('p').textContent = 'The reproducibility notebook opens in Google Colab with access controlled by the project repository.';
+          els.projectOpen.hidden = false;
+          els.projectOpen.querySelector('span').textContent = 'Open Colab';
+          els.projectExternal.hidden = false;
+          hydrateIcons();
+          return;
+        }
+        if (artifact.type === 'docx') {
+          els.projectEmpty.querySelector('p').textContent = 'Download the report as a Word document generated from this saved manuscript revision.';
+          els.projectOpen.hidden = false;
+          els.projectOpen.querySelector('span').textContent = 'Download DOCX';
+          hydrateIcons();
+          return;
+        }
+        els.projectEmpty.querySelector('p').textContent = 'Loading ' + artifact.title + '...';
+        try {
+          const response = await fetchProjectArtifact(artifact);
+          if (artifact.type === 'pdf') {
+            projectObjectUrl = URL.createObjectURL(await response.blob());
+            els.projectFrame.src = projectObjectUrl;
+            els.projectFrame.hidden = false;
+            els.projectEmpty.hidden = true;
+            els.projectExternal.hidden = false;
+          } else {
+            els.projectText.textContent = await response.text();
+            els.projectText.hidden = false;
+            els.projectEmpty.hidden = true;
+          }
+        } catch (error) {
+          els.projectEmpty.querySelector('p').textContent = error.message || String(error);
+        }
+      }
+
+      async function launchProjectArtifact() {
+        const artifact = activeProjectArtifact();
+        if (!artifact) return;
+        if (artifact.type === 'colab') {
+          window.open(safeExternalUrl(artifact.url), '_blank', 'noopener,noreferrer');
+          return;
+        }
+        if (artifact.type === 'docx') {
+          const response = await fetchProjectArtifact(artifact);
+          const url = URL.createObjectURL(await response.blob());
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = artifact.title.replace(/\s+DOCX$/i, '') + '.docx';
+          link.click();
+          setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+          return;
+        }
+        if (projectObjectUrl) window.open(projectObjectUrl, '_blank', 'noopener,noreferrer');
+        else window.open(safeExternalUrl(artifact.url), '_blank', 'noopener,noreferrer');
       }
 
       function citationDomId(messageId, citationId) {
@@ -1259,7 +1510,7 @@
         }
       }
 
-      function renderAll() { renderConversations(); renderMessages(); refreshHeader(); }
+      function renderAll() { renderConversations(); renderMessages(); syncProjectArtifacts(); refreshHeader(); }
       function renderConversations() {
         const query = els.conversationSearch.value.trim().toLowerCase();
         const visible = conversations.slice().sort(function (a, b) { return b.updatedAt.localeCompare(a.updatedAt); }).filter(function (conversation) {
@@ -1299,7 +1550,14 @@
         const meta = message.meta ? '<div class="message-meta">' + escapeHtml(message.meta) + '</div>' : '';
         const sources = renderMessageSources(message.citations || [], message.id);
         return '<article class="message-row ' + escapeHtml(message.role) + (message.error ? ' error-message' : '') + '"><div class="message-inner">' + avatar +
-          '<div class="message-content">' + attachmentsHtml + renderMarkdown(message.text, message.id, message.citations || []) + sources + meta + '</div></div></article>';
+          '<div class="message-content">' + attachmentsHtml + renderMarkdown(message.text, message.id, message.citations || []) + renderProjectActions(message.projectArtifacts || [], message.id) + sources + meta + '</div></div></article>';
+      }
+      function renderProjectActions(items, messageId) {
+        if (!items.length) return '';
+        return '<div class="project-actions">' + items.map(function (artifact) {
+          const command = artifact.type === 'docx' ? 'Download' : 'Open';
+          return '<button class="project-action" type="button" data-project-message="' + escapeHtml(messageId) + '" data-project-artifact="' + escapeHtml(artifact.id) + '"><i data-lucide="' + artifactIcon(artifact.type) + '"></i><span>' + command + ' ' + escapeHtml(artifact.type === 'colab' ? 'Colab' : artifact.type.toUpperCase()) + '</span></button>';
+        }).join('') + '</div>';
       }
       function renderMessageSources(items, messageId) {
         const valid = items.map(function (item) { return { id: item.id, title: item.title, url: readerUrl(item.url) }; }).filter(function (item) { return item.url; });
@@ -1336,10 +1594,10 @@
         persist();
         refreshHeader();
       }
-      function addMessage(role, text, meta, messageAttachments, isError, agentId, citations) {
+      function addMessage(role, text, meta, messageAttachments, isError, agentId, citations, messageProjectArtifacts) {
         const conversation = activeConversation();
         const now = new Date().toISOString();
-        conversation.messages.push({ id: newId(), role: role, text: text, meta: meta || '', agentId: agentId || '', attachments: messageAttachments || [], citations: citations || [], error: Boolean(isError), createdAt: now });
+        conversation.messages.push({ id: newId(), role: role, text: text, meta: meta || '', agentId: agentId || '', attachments: messageAttachments || [], citations: citations || [], projectArtifacts: messageProjectArtifacts || [], error: Boolean(isError), createdAt: now });
         if (role === 'user' && conversation.title === 'New chat') conversation.title = (plainText(text) || 'Attachment review').slice(0, 44);
         conversation.updatedAt = now;
         persist();
@@ -1555,7 +1813,7 @@
           (payload.participant_responses || []).forEach(function (participant) {
             addMessage('assistant', participant.response || '', participant.name || agentNames[participant.agent] || participant.agent, [], false, participant.agent);
           });
-          addMessage('assistant', payload.response || 'No response text returned.', summarizePayload(payload), chemistryAttachments(payload), false, payload.panel ? 'panel_moderator' : payload.agent, responseCitations(payload));
+          addMessage('assistant', payload.response || 'No response text returned.', summarizePayload(payload), chemistryAttachments(payload), false, payload.panel ? 'panel_moderator' : payload.agent, responseCitations(payload), payloadProjectArtifacts(payload));
           if (payload.workspace_action) showWorkspacePreview(payload.workspace_action);
           setBusy(false, false);
           setStatus('Ready.', 'Last response returned from ' + (payload.agent_display_name || payload.agent || 'the backend') + '.');
@@ -1610,6 +1868,11 @@
         renderAttachments();
       });
       els.messages.addEventListener('click', function (event) {
+        const artifactButton = event.target.closest('[data-project-artifact]');
+        if (artifactButton) {
+          showProjectArtifact(artifactButton.dataset.projectArtifact).catch(function (error) { showToast(error.message); });
+          return;
+        }
         const suggestionButton = event.target.closest('[data-suggestion]');
         if (!suggestionButton) return;
         els.message.value = suggestionButton.dataset.suggestion;
@@ -1648,6 +1911,22 @@
       els.apiBase.addEventListener('change', function () { els.apiBase.value = normalizeBase(els.apiBase.value); localStorage.setItem(API_KEY, els.apiBase.value); });
       els.theme.addEventListener('change', function () { applyTheme(els.theme.value, true); });
       els.themeToggle.addEventListener('click', function () { applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark', true); });
+      els.workspaceLayout.addEventListener('click', function () {
+        const willOpen = els.layoutMenu.hidden;
+        els.layoutMenu.hidden = !willOpen;
+        els.workspaceLayout.setAttribute('aria-expanded', String(willOpen));
+      });
+      els.layoutMenu.addEventListener('click', function (event) {
+        const button = event.target.closest('[data-layout]');
+        if (button) setWorkspaceLayout(button.dataset.layout, true);
+      });
+      els.projectTabs.addEventListener('click', function (event) {
+        const tab = event.target.closest('[data-project-tab]');
+        if (tab) showProjectArtifact(tab.dataset.projectTab).catch(function (error) { showToast(error.message); });
+      });
+      els.projectOpen.addEventListener('click', function () { launchProjectArtifact().catch(function (error) { showToast(error.message); }); });
+      els.projectExternal.addEventListener('click', function () { launchProjectArtifact().catch(function (error) { showToast(error.message); }); });
+      els.closeProject.addEventListener('click', function () { setWorkspaceLayout('chat', true); });
       els.githubConnect.addEventListener('click', function () {
         if (authToken()) syncGithubHistory(conversations).catch(function (error) { showToast(error.message); });
         else location.href = normalizeBase(els.apiBase.value) + '/api/github/connect';
@@ -1663,8 +1942,20 @@
       document.addEventListener('dragleave', function () { dragDepth -= 1; if (dragDepth <= 0) { dragDepth = 0; document.body.classList.remove('dragging'); } });
       document.addEventListener('dragover', function (event) { event.preventDefault(); });
       document.addEventListener('drop', function (event) { event.preventDefault(); dragDepth = 0; document.body.classList.remove('dragging'); if (event.dataTransfer) addFiles(event.dataTransfer.files); });
-      document.addEventListener('click', function (event) { if (!event.target.closest('#attach') && !event.target.closest('#attachment-menu')) closeAttachmentMenu(); });
-      document.addEventListener('keydown', function (event) { if (event.key === 'Escape') closeAttachmentMenu(); });
+      document.addEventListener('click', function (event) {
+        if (!event.target.closest('#attach') && !event.target.closest('#attachment-menu')) closeAttachmentMenu();
+        if (!event.target.closest('#workspace-layout') && !event.target.closest('#layout-menu')) {
+          els.layoutMenu.hidden = true;
+          els.workspaceLayout.setAttribute('aria-expanded', 'false');
+        }
+      });
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+          closeAttachmentMenu();
+          els.layoutMenu.hidden = true;
+          els.workspaceLayout.setAttribute('aria-expanded', 'false');
+        }
+      });
     })();
   </script>
 </body>
