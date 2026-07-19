@@ -15,6 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&family=PT+Serif:wght@400;700&family=Playfair+Display:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/dockview@7.0.2/dist/styles/dockview.css">
   <style>
     :root {
       --sidebar: #ebe9e4;
@@ -131,6 +132,23 @@
     .workspace[data-layout="bottom"] .empty-inner p,
     .workspace[data-layout="bottom"] .suggestions { display: none; }
     .workspace[data-layout="bottom"] .empty-inner h1 { margin: 0; font-size: 19px; }
+
+    /* Dockview mounts only when a second workspace panel is needed. */
+    .workspace.dockview-active { display: block; position: relative; }
+    .workspace.dockview-active .dv-dockview { --dv-group-view-background-color: var(--canvas); --dv-tabs-and-actions-container-background-color: var(--surface); --dv-activegroup-visiblepanel-tab-background-color: var(--canvas); --dv-activegroup-visiblepanel-tab-color: var(--ink); --dv-tab-divider-color: var(--line); --dv-separator-border: var(--line); }
+    .workspace.dockview-active .dv-tab { font: 10px Montserrat, system-ui, sans-serif; }
+    .workspace.dockview-active .dv-content-container { background: var(--canvas); }
+    .workspace.dockview-active .main,
+    .workspace.dockview-active .project-pane { grid-area: auto; width: 100%; height: 100%; }
+    .workspace.dockview-active .project-pane[hidden] { display: flex; }
+    .workspace.dockview-active .topbar { flex: 0 0 var(--topbar-height); }
+    .workspace.dockview-active .composer-area { position: absolute; }
+    @media (max-width: 820px) {
+      .workspace.dockview-active { display: grid; }
+      .workspace.dockview-active .dv-dockview { display: none; }
+      .workspace.dockview-active .main { height: auto; }
+      .workspace.dockview-active .project-pane { height: auto; }
+    }
 
     .sidebar {
       width: var(--sidebar-width);
@@ -951,6 +969,7 @@
       const AUTH_KEY = 'terpedia_chat_auth_token';
       const GUEST_SESSION_END_KEY = 'terpedia_guest_session_ends_at';
       const LAYOUT_KEY = 'terpedia_chat_workspace_layout';
+      const DOCKVIEW_LAYOUT_KEY = 'terpedia_chat_dockview_layout_v1';
       const MAX_IMAGES = 3;
       const MAX_DOCUMENTS = 3;
       const MAX_PDF_BYTES = 15 * 1024 * 1024;
@@ -996,7 +1015,7 @@
         'sidebar-overlay', 'connection-dot', 'theme-toggle', 'theme', 'github-storage', 'github-status', 'github-connect',
         'account-status', 'account-action', 'auth-dialog', 'close-auth', 'github-signin', 'signed-in-account', 'signed-in-status', 'sign-out',
         'guest-session', 'guest-countdown', 'join',
-        'workspace', 'workspace-layout', 'layout-menu', 'project-pane', 'project-title', 'project-subtitle', 'project-tabs',
+        'workspace', 'chat-pane', 'workspace-layout', 'layout-menu', 'project-pane', 'project-title', 'project-subtitle', 'project-tabs',
         'project-frame', 'project-text', 'project-empty', 'project-open', 'project-external', 'close-project',
         'google-storage', 'google-status', 'google-connect', 'google-drive', 'google-picker-dialog', 'close-google-picker',
         'google-picker-search', 'google-file-query', 'google-file-list', 'workspace-confirm-dialog', 'close-workspace-confirm',
@@ -1038,6 +1057,8 @@
       let projectArtifacts = [];
       let activeProjectArtifactId = null;
       let projectObjectUrl = '';
+      let dockview = null;
+      let dockviewPromise = null;
       let githubAuthEnabled = false;
       const utcDayStart = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate());
       if (guestSessionEndsAt && guestSessionEndsAt < utcDayStart) {
@@ -1076,6 +1097,7 @@
         els.themeToggle.innerHTML = '<i data-lucide="' + (dark ? 'sun' : 'moon') + '"></i>';
         els.themeToggle.setAttribute('aria-label', dark ? 'Use light mode' : 'Use dark mode');
         els.themeToggle.title = dark ? 'Use light mode' : 'Use dark mode';
+        applyDockviewTheme();
         hydrateIcons();
       }
 
@@ -1109,14 +1131,101 @@
         const allowed = ['chat', 'left', 'right', 'bottom'];
         const next = allowed.includes(layout) ? layout : 'chat';
         els.workspace.dataset.layout = next;
-        els.projectPane.hidden = next === 'chat';
         els.layoutMenu.hidden = true;
         els.workspaceLayout.setAttribute('aria-expanded', 'false');
         Array.from(els.layoutMenu.querySelectorAll('[data-layout]')).forEach(function (button) {
           button.classList.toggle('active', button.dataset.layout === next);
         });
         if (persistLayout !== false) localStorage.setItem(LAYOUT_KEY, next);
+        if (next === 'chat') {
+          disableDockview();
+          els.projectPane.hidden = true;
+        } else {
+          els.projectPane.hidden = false;
+          ensureDockview(next).catch(function (error) {
+            console.warn('Dockview unavailable; using the workspace fallback.', error);
+            showToast('Draggable workspace unavailable; using the standard layout.');
+          });
+        }
         requestAnimationFrame(scrollToBottom);
+      }
+
+      function dockviewThemeClass() {
+        return document.documentElement.dataset.theme === 'dark' ? 'dockview-theme-dark' : 'dockview-theme-light';
+      }
+
+      function applyDockviewTheme() {
+        if (!dockview) return;
+        els.workspace.classList.remove('dockview-theme-light', 'dockview-theme-dark');
+        els.workspace.classList.add(dockviewThemeClass());
+      }
+
+      function persistDockviewLayout() {
+        if (!dockview || typeof dockview.toJSON !== 'function') return;
+        try { localStorage.setItem(DOCKVIEW_LAYOUT_KEY, JSON.stringify(dockview.toJSON())); } catch (error) { /* Ignore storage quota errors. */ }
+      }
+
+      function dockviewPosition(layout) {
+        return { direction: layout === 'bottom' ? 'below' : layout === 'left' ? 'left' : 'right', referencePanel: 'chat-panel' };
+      }
+
+      function disableDockview() {
+        if (!dockview) return;
+        const chatPane = els.chatPane;
+        const projectPane = els.projectPane;
+        try { dockview.dispose(); } catch (error) { console.warn('Could not dispose Dockview cleanly.', error); }
+        dockview = null;
+        dockviewPromise = null;
+        els.workspace.classList.remove('dockview-active', 'dockview-theme-light', 'dockview-theme-dark');
+        els.workspace.replaceChildren(chatPane, projectPane);
+      }
+
+      function ensureDockview(layout) {
+        if (window.matchMedia('(max-width: 820px)').matches) return Promise.resolve(false);
+        if (dockview) {
+          dockview.dispose();
+          dockview = null;
+          dockviewPromise = null;
+          els.workspace.replaceChildren();
+        }
+        if (dockviewPromise) return dockviewPromise;
+        dockviewPromise = import('https://cdn.jsdelivr.net/npm/dockview@7.0.2/+esm').then(function (module) {
+          if (typeof module.createDockview !== 'function') throw new Error('Dockview did not load.');
+          const chatPane = els.chatPane;
+          const projectPane = els.projectPane;
+          const createComponent = function (options) {
+            const element = document.createElement('div');
+            element.className = 'dockview-panel-content';
+            return {
+              element: element,
+              init: function () {
+                element.appendChild(options.name === 'chat' ? chatPane : projectPane);
+                if (options.name === 'project') projectPane.hidden = false;
+              }
+            };
+          };
+          els.workspace.replaceChildren();
+          els.workspace.classList.add('dockview-active', dockviewThemeClass());
+          dockview = module.createDockview(els.workspace, { createComponent: createComponent });
+          dockview.onDidLayoutChange(function () { persistDockviewLayout(); });
+          const savedLayout = localStorage.getItem(DOCKVIEW_LAYOUT_KEY);
+          if (savedLayout) {
+            try { dockview.fromJSON(JSON.parse(savedLayout)); }
+            catch (error) { localStorage.removeItem(DOCKVIEW_LAYOUT_KEY); }
+          }
+          if (!dockview.panels || !dockview.panels.length) {
+            dockview.addPanel({ id: 'chat-panel', component: 'chat', title: 'Chat' });
+            dockview.addPanel({ id: 'project-panel', component: 'project', title: 'Project', position: dockviewPosition(layout) });
+          }
+          persistDockviewLayout();
+          return true;
+        }).catch(function (error) {
+          dockview = null;
+          els.workspace.classList.remove('dockview-active', 'dockview-theme-light', 'dockview-theme-dark');
+          els.workspace.replaceChildren(els.chatPane, els.projectPane);
+          throw error;
+        });
+        return dockviewPromise;
       }
 
       function artifactIcon(type) {
