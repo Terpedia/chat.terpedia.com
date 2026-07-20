@@ -109,6 +109,21 @@
 
     .app { height: 100dvh; display: flex; }
 
+    /* A popped-out project gets the full browser tab without duplicating chat chrome. */
+    body.popout-project .sidebar { display: none; }
+    body.popout-project .workspace { display: block; background: var(--canvas); }
+    body.popout-project .workspace > .main,
+    body.popout-project .workspace > .dv-dockview { display: none; }
+    body.popout-project .workspace > .project-pane,
+    body.popout-project .workspace > .project-pane[hidden] {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      display: flex;
+      width: 100%;
+      height: 100dvh;
+    }
+
     .workspace {
       flex: 1;
       min-width: 0;
@@ -906,7 +921,7 @@
     <section class="project-pane" id="project-pane" aria-label="Project workspace" hidden>
       <header class="project-head">
         <div class="project-heading"><strong id="project-title">Project</strong><span id="project-subtitle">Research artifacts</span></div>
-        <button class="icon-button" id="project-external" type="button" aria-label="Open artifact in a new tab" title="Open in new tab" hidden><i data-lucide="external-link"></i></button>
+        <button class="icon-button" id="project-external" type="button" aria-label="Pop out project panel" title="Pop out project panel" hidden><i data-lucide="external-link"></i></button>
         <button class="icon-button" id="close-project" type="button" aria-label="Close project workspace" title="Close project workspace"><i data-lucide="x"></i></button>
       </header>
       <nav class="project-tabs" id="project-tabs" aria-label="Project artifacts"></nav>
@@ -1036,6 +1051,9 @@
       }
 
       const params = new URLSearchParams(window.location.search);
+      const popoutProject = params.get('popout') === 'project';
+      const popoutConversationId = params.get('conversation');
+      if (popoutProject) document.body.classList.add('popout-project');
       const sessionKey = localStorage.getItem(USER_KEY) || 'terpedia:' + newId();
       localStorage.setItem(USER_KEY, sessionKey);
       els.apiBase.value = normalizeBase(params.get('api') || localStorage.getItem(API_KEY) || window.TERPEDIA_CHAT_CONFIG.apiBaseUrl);
@@ -1068,6 +1086,7 @@
 
       if (!conversations.length) conversations.push(createConversation());
       if (!conversations.some(function (conversation) { return conversation.id === activeId; })) activeId = conversations[0].id;
+      if (popoutConversationId && conversations.some(function (conversation) { return conversation.id === popoutConversationId; })) activeId = popoutConversationId;
       syncControlsFromConversation();
       renderAll();
       hydrateIcons();
@@ -1076,7 +1095,19 @@
       startGuestCountdown();
       configureGithubStorage();
       configureGoogleWorkspace();
-      setWorkspaceLayout(localStorage.getItem(LAYOUT_KEY) || 'chat', false);
+      setWorkspaceLayout(popoutProject ? 'chat' : (localStorage.getItem(LAYOUT_KEY) || 'chat'), false);
+      if (popoutProject) {
+        els.projectPane.hidden = false;
+        syncProjectArtifacts();
+        const requestedArtifactId = params.get('artifact');
+        if (requestedArtifactId && projectArtifacts.some(function (artifact) { return artifact.id === requestedArtifactId; })) {
+          showProjectArtifact(requestedArtifactId);
+        } else {
+          clearProjectView();
+          els.projectTitle.textContent = 'Project workspace';
+          els.projectSubtitle.textContent = 'Research artifacts';
+        }
+      }
 
       function hydrateIcons() {
         if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons({ attrs: { 'aria-hidden': 'true', class: 'icon' } });
@@ -1288,7 +1319,7 @@
         const artifact = projectArtifacts.find(function (item) { return item.id === artifactId; });
         if (!artifact) return;
         activeProjectArtifactId = artifact.id;
-        if (els.workspace.dataset.layout === 'chat') setWorkspaceLayout('right', true);
+        if (!popoutProject && els.workspace.dataset.layout === 'chat') setWorkspaceLayout('right', true);
         clearProjectView();
         els.projectTitle.textContent = artifact.title;
         els.projectSubtitle.textContent = artifact.subtitle || artifact.type.toUpperCase();
@@ -1297,7 +1328,7 @@
           els.projectEmpty.querySelector('p').textContent = 'The reproducibility notebook opens in Google Colab with access controlled by the project repository.';
           els.projectOpen.hidden = false;
           els.projectOpen.querySelector('span').textContent = 'Open Colab';
-          els.projectExternal.hidden = false;
+          els.projectExternal.hidden = popoutProject;
           hydrateIcons();
           return;
         }
@@ -1307,6 +1338,7 @@
             : 'Download the report as a Word document generated from this saved manuscript revision.';
           els.projectOpen.hidden = false;
           els.projectOpen.querySelector('span').textContent = 'Download ' + artifact.type.toUpperCase();
+          els.projectExternal.hidden = popoutProject;
           hydrateIcons();
           return;
         }
@@ -1318,7 +1350,7 @@
             els.projectFrame.src = projectObjectUrl;
             els.projectFrame.hidden = false;
             els.projectEmpty.hidden = true;
-            els.projectExternal.hidden = false;
+            els.projectExternal.hidden = popoutProject;
           } else {
             els.projectText.textContent = await response.text();
             els.projectText.hidden = false;
@@ -1348,6 +1380,18 @@
         }
         if (projectObjectUrl) window.open(projectObjectUrl, '_blank', 'noopener,noreferrer');
         else window.open(safeExternalUrl(artifact.url), '_blank', 'noopener,noreferrer');
+      }
+
+      function popOutProjectPanel() {
+        const query = new URLSearchParams({ popout: 'project', conversation: activeId });
+        if (activeProjectArtifactId) query.set('artifact', activeProjectArtifactId);
+        const popup = window.open(window.location.pathname + '?' + query.toString(), '_blank');
+        if (!popup) {
+          showToast('Allow pop-ups to open the project panel in a new tab.');
+          return;
+        }
+        try { popup.opener = null; } catch (_) { /* Cross-browser hardening is best effort. */ }
+        setWorkspaceLayout('chat', true);
       }
 
       function citationDomId(messageId, citationId) {
@@ -2104,7 +2148,7 @@
         if (tab) showProjectArtifact(tab.dataset.projectTab).catch(function (error) { showToast(error.message); });
       });
       els.projectOpen.addEventListener('click', function () { launchProjectArtifact().catch(function (error) { showToast(error.message); }); });
-      els.projectExternal.addEventListener('click', function () { launchProjectArtifact().catch(function (error) { showToast(error.message); }); });
+      els.projectExternal.addEventListener('click', popOutProjectPanel);
       els.closeProject.addEventListener('click', function () { setWorkspaceLayout('chat', true); });
       els.githubConnect.addEventListener('click', function () {
         if (authToken()) syncGithubHistory(conversations).catch(function (error) { showToast(error.message); });
