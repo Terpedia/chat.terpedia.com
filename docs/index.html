@@ -105,6 +105,7 @@
       border-radius: 5px;
       background: transparent;
     }
+    .icon-button[hidden] { display: none; }
     .icon-button:hover { background: var(--surface-strong); }
 
     .app { height: 100dvh; display: flex; }
@@ -2149,7 +2150,10 @@
       });
       els.projectOpen.addEventListener('click', function () { launchProjectArtifact().catch(function (error) { showToast(error.message); }); });
       els.projectExternal.addEventListener('click', popOutProjectPanel);
-      els.closeProject.addEventListener('click', function () { setWorkspaceLayout('chat', true); });
+      els.closeProject.addEventListener('click', function () {
+        if (popoutProject) { window.close(); return; }
+        setWorkspaceLayout('chat', true);
+      });
       els.githubConnect.addEventListener('click', function () {
         if (authToken()) syncGithubHistory(conversations).catch(function (error) { showToast(error.message); });
         else location.href = normalizeBase(els.apiBase.value) + '/api/github/connect';
