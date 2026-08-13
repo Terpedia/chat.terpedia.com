@@ -1,0 +1,84 @@
+{
+  "disclaimer": "Synthetic RDKit proxy benchmark; not protein binding, docking, or private-harness evidence.",
+  "library_size": 8000,
+  "targets": 8,
+  "paired_repeats": 5,
+  "evaluation_budget_per_method": 1600,
+  "output_molecules": 100,
+  "mean_relative_improvement_percent": 10.741413719888564,
+  "median_relative_improvement_percent": 8.152056995576597,
+  "mean_absolute_delta": 0.12335149578580695,
+  "absolute_delta_95_percent_bootstrap_ci": [
+    0.10802915244546522,
+    0.13866458421625094
+  ],
+  "paired_run_wins": 40,
+  "paired_runs": 40,
+  "target_summaries": [
+    {
+      "proxy_target": 1,
+      "naive_mean": 2.023882105407229,
+      "evolution_mean": 2.1860583120293526,
+      "relative_improvement_percent": 8.014862311994175,
+      "wins": 5,
+      "runs": 5
+    },
+    {
+      "proxy_target": 2,
+      "naive_mean": 1.58298472423781,
+      "evolution_mean": 1.7661065501200657,
+      "relative_improvement_percent": 11.580604765170417,
+      "wins": 5,
+      "runs": 5
+    },
+    {
+      "proxy_target": 3,
+      "naive_mean": 1.473268680403065,
+      "evolution_mean": 1.5705549013463125,
+      "relative_improvement_percent": 6.612097213039907,
+      "wins": 5,
+      "runs": 5
+    },
+    {
+      "proxy_target": 4,
+      "naive_mean": 1.0100290342754523,
+      "evolution_mean": 1.099233443541308,
+      "relative_improvement_percent": 8.838052448257562,
+      "wins": 5,
+      "runs": 5
+    },
+    {
+      "proxy_target": 5,
+      "naive_mean": 1.1441251484338402,
+      "evolution_mean": 1.2111312270929253,
+      "relative_improvement_percent": 5.87082247473923,
+      "wins": 5,
+      "runs": 5
+    },
+    {
+      "proxy_target": 6,
+      "naive_mean": 1.3298852676097457,
+      "evolution_mean": 1.4687210970897244,
+      "relative_improvement_percent": 10.478807581210768,
+      "wins": 5,
+      "runs": 5
+    },
+    {
+      "proxy_target": 7,
+      "naive_mean": 1.1354945039250475,
+      "evolution_mean": 1.207601747270063,
+      "relative_improvement_percent": 6.373395528383359,
+      "wins": 5,
+      "runs": 5
+    },
+    {
+      "proxy_target": 8,
+      "naive_mean": 0.6308493225522323,
+      "evolution_mean": 0.8079234746411263,
+      "relative_improvement_percent": 28.162667436313097,
+      "wins": 5,
+      "runs": 5
+    }
+  ],
+  "library_sha256": "fdb7c673e5f9de39e3c3add0e34d866789e173c9ed987abcbf74a316fe91d093"
+}
