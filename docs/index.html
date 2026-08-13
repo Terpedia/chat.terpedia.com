@@ -701,7 +701,7 @@
     .settings-body { display: grid; gap: 15px; padding: 18px; }
     .field { display: grid; gap: 6px; }
     .field label { color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; }
-    .field input, .field select {
+    .field input, .field select, .field textarea {
       width: 100%;
       min-height: 40px;
       border: 1px solid var(--line);
@@ -710,6 +710,7 @@
       padding: 0 10px;
       color: var(--ink);
     }
+    .field textarea { min-height: 96px; padding: 10px; resize: vertical; font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
     .settings-status { border: 1px solid var(--line); border-radius: 7px; background: var(--surface); padding: 11px; font-size: 12px; line-height: 1.5; color: var(--muted); }
     .settings-status strong { color: var(--ink); }
     .storage-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--line); border-radius: 7px; padding: 10px; }
@@ -875,6 +876,7 @@
         <div class="chat-heading"><strong id="active-title">New chat</strong><span id="active-subtitle">Auto-routed Terpedia agents</span></div>
         <div class="top-controls">
           <label class="rag-toggle" title="Use retrieval-augmented generation"><input id="use-rag" type="checkbox" checked><span>RAG</span></label>
+          <label class="rag-toggle" title="Run deterministic chemistry with RDKit"><input id="use-rdkit" type="checkbox"><span>RDKit</span></label>
           <div class="guest-session" id="guest-session" title="Guest time starts with your first message"><span class="guest-session-label">Guest</span><time class="guest-countdown" id="guest-countdown" datetime="PT1H">1:00:00</time><button class="join-button" id="join" type="button">Sign in</button></div>
           <button class="icon-button" id="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode"><i data-lucide="moon"></i></button>
           <div class="layout-control">
@@ -909,6 +911,7 @@
               <button class="attachment-action" type="button" role="menuitem" data-attachment-action="product-photo"><span class="action-icon"><i data-lucide="images"></i></span><span><strong>Product photos</strong><small>Identify or compare products</small></span></button>
               <button class="attachment-action" type="button" role="menuitem" data-attachment-action="coa"><span class="action-icon"><i data-lucide="file-scan"></i></span><span><strong>COA</strong><small>Parse laboratory results</small></span></button>
               <button class="attachment-action" type="button" role="menuitem" data-attachment-action="document"><span class="action-icon"><i data-lucide="file-text"></i></span><span><strong>PDF</strong><small>Review a document</small></span></button>
+              <button class="attachment-action" type="button" role="menuitem" data-attachment-action="rdkit"><span class="action-icon"><i data-lucide="flask-conical"></i></span><span><strong>RDKit chemistry</strong><small>Analyze, compare, search, react, or dock molecules</small></span></button>
             </div>
             <button class="icon-button attach-button" id="attach" type="button" aria-label="Add to chat" title="Add to chat" aria-haspopup="menu" aria-expanded="false"><i data-lucide="plus"></i></button>
             <button class="icon-button composer-source-button" id="google-drive" type="button" aria-label="Attach from Google Drive" title="Attach from Google Drive" hidden><i data-lucide="hard-drive"></i></button>
@@ -953,6 +956,17 @@
       <button class="auth-provider" id="github-signin" type="button"><i data-lucide="github"></i><span>Continue with GitHub</span></button>
       <div class="auth-account" id="signed-in-account" hidden><span id="signed-in-status">Signed in</span><button id="sign-out" type="button">Sign out</button></div>
     </div>
+  </dialog>
+  <dialog id="chemistry-dialog">
+    <div class="dialog-head"><h2>RDKit chemistry</h2><button class="icon-button" id="close-chemistry" type="button" aria-label="Close RDKit chemistry"><i data-lucide="x"></i></button></div>
+    <form id="chemistry-form">
+      <div class="settings-body">
+        <div class="field"><label for="chemistry-operation">Operation</label><select id="chemistry-operation"><option value="analyze">Analyze descriptors and structure</option><option value="batch">Batch descriptors</option><option value="resolve">Resolve PubChem name</option><option value="compare">Fingerprint similarity and MCS</option><option value="substructure">Substructure search</option><option value="reaction">Reaction analysis</option><option value="pharmacophore">3D pharmacophore</option><option value="metabolism">Phase I/II metabolism candidates</option><option value="dock">Protein docking</option><option value="dock-batch">Low-compute batch docking</option><option value="dock-hq">Validated multi-seed batch docking</option><option value="study">Target-fishing/docking study analysis</option></select></div>
+        <div class="field"><label for="chemistry-input">Chemical input</label><textarea id="chemistry-input" required spellcheck="false" placeholder="Name: limonene&#10;or SMILES: CC1=CCC(CC1)C(=C)C"></textarea></div>
+        <div class="settings-status"><strong>Deterministic tools.</strong> RDKit values are computed, not experimental. Docking uses AutoDock Vina and reports ranking estimates—not measured affinity.</div>
+      </div>
+      <div class="dialog-actions"><button id="cancel-chemistry" type="button">Cancel</button><button class="primary" type="submit">Add to message</button></div>
+    </form>
   </dialog>
   <dialog id="google-picker-dialog">
     <div class="dialog-head"><h2>Google Drive</h2><button class="icon-button" id="close-google-picker" type="button" aria-label="Close Google Drive"><i data-lucide="x"></i></button></div>
@@ -1024,12 +1038,13 @@
       };
 
       const els = {};
-      ['conversation-list', 'conversation-search', 'new-chat', 'use-rag', 'model', 'api-base', 'status',
+      ['conversation-list', 'conversation-search', 'new-chat', 'use-rag', 'use-rdkit', 'model', 'api-base', 'status',
         'active-title', 'active-subtitle', 'messages', 'transcript', 'chat-form', 'message', 'send', 'attach', 'attachment-menu',
         'camera-input', 'product-photo-input', 'coa-input', 'pdf-input',
         'attachment-tray', 'settings-dialog', 'open-settings', 'top-settings', 'close-settings', 'open-sidebar', 'close-sidebar',
         'sidebar-overlay', 'connection-dot', 'theme-toggle', 'theme', 'github-storage', 'github-status', 'github-connect',
         'account-status', 'account-action', 'auth-dialog', 'close-auth', 'github-signin', 'signed-in-account', 'signed-in-status', 'sign-out',
+        'chemistry-dialog', 'chemistry-form', 'chemistry-operation', 'chemistry-input', 'close-chemistry', 'cancel-chemistry',
         'guest-session', 'guest-countdown', 'join',
         'workspace', 'chat-pane', 'workspace-layout', 'layout-menu', 'project-pane', 'project-title', 'project-subtitle', 'project-tabs',
         'project-frame', 'project-text', 'project-empty', 'project-open', 'project-external', 'close-project',
@@ -1434,7 +1449,7 @@
 
       function createConversation() {
         const now = new Date().toISOString();
-        return { id: newId(), title: 'New chat', createdAt: now, updatedAt: now, useRag: true, messages: [] };
+        return { id: newId(), title: 'New chat', createdAt: now, updatedAt: now, useRag: true, useRdkit: false, messages: [] };
       }
       function readConversations() {
         try {
@@ -1756,7 +1771,7 @@
             suggestion('Scan product photos', 'Identify labels, formats, and visible claims across several images.') +
             suggestion('Review a COA', 'Attach a PDF and check potency, contaminants, and specifications.') +
             suggestion('Research a terpene', 'Summarize chemistry, evidence, stability, and sensory character.') +
-            suggestion('Plan a product', 'Explore formulation, sourcing, claims, and compliance questions.') + '</div></div></div>';
+            suggestion('Analyze with RDKit', 'Compute descriptors, identifiers, alerts, conformers, and a molecular depiction for Name: limonene.') + '</div></div></div>';
           hydrateIcons();
           return;
         }
@@ -1803,17 +1818,19 @@
       function refreshHeader() {
         const conversation = activeConversation();
         els.activeTitle.textContent = conversation ? conversation.title : 'New chat';
-        els.activeSubtitle.textContent = 'Context-routed Terpedia agents';
+        els.activeSubtitle.textContent = conversation && conversation.useRdkit ? 'RDKit chemistry · Terpedia agents' : 'Context-routed Terpedia agents';
       }
       function syncControlsFromConversation() {
         const conversation = activeConversation();
         if (!conversation) return;
         els.useRag.checked = conversation.useRag !== false;
+        els.useRdkit.checked = conversation.useRdkit === true;
       }
       function saveConversationControls() {
         const conversation = activeConversation();
         if (!conversation) return;
         conversation.useRag = els.useRag.checked;
+        conversation.useRdkit = els.useRdkit.checked;
         conversation.updatedAt = new Date().toISOString();
         persist();
         refreshHeader();
@@ -1935,6 +1952,7 @@
           }),
           context: { frontend: 'chat.terpedia.com', hosting: 'github_pages', attachmentCount: outgoingAttachments.length }
         };
+        if (els.useRdkit.checked) body.skill = 'computational-chemistry';
         if (attachmentIntent) body.attachment_intent = attachmentIntent;
         if (els.model.value) body.model = els.model.value;
         return body;
@@ -1971,6 +1989,7 @@
         const pieces = [];
         if (payload.agent_display_name || payload.agent) pieces.push(payload.agent_display_name || payload.agent);
         if (payload.rag && Array.isArray(payload.rag.entries)) pieces.push('RAG ' + payload.rag.entries.length);
+        if (payload.chemistry) pieces.push('RDKit ' + (payload.chemistry.operation || payload.chemistry.status || 'computed'));
         if (payload.usage && payload.usage.total_tokens) pieces.push(payload.usage.total_tokens + ' tokens');
         return pieces.join(' · ') || 'Terpedia';
       }
@@ -2063,6 +2082,12 @@
       els.attachmentMenu.addEventListener('click', function (event) {
         const action = event.target.closest('[data-attachment-action]');
         if (!action) return;
+        if (action.dataset.attachmentAction === 'rdkit') {
+          closeAttachmentMenu();
+          els.chemistryDialog.showModal();
+          els.chemistryInput.focus();
+          return;
+        }
         const input = action.dataset.attachmentAction === 'camera' ? els.cameraInput
           : action.dataset.attachmentAction === 'product-photo' ? els.productPhotoInput
             : action.dataset.attachmentAction === 'coa' ? els.coaInput : els.pdfInput;
@@ -2074,6 +2099,34 @@
       els.productPhotoInput.addEventListener('change', function () { addFiles(els.productPhotoInput.files, 'product-photo'); els.productPhotoInput.value = ''; });
       els.coaInput.addEventListener('change', function () { addFiles(els.coaInput.files, 'coa'); els.coaInput.value = ''; });
       els.pdfInput.addEventListener('change', function () { addFiles(els.pdfInput.files, 'document'); els.pdfInput.value = ''; });
+      function closeChemistryDialog() { els.chemistryDialog.close(); }
+      els.closeChemistry.addEventListener('click', closeChemistryDialog);
+      els.cancelChemistry.addEventListener('click', closeChemistryDialog);
+      els.chemistryForm.addEventListener('submit', function (event) {
+        event.preventDefault();
+        const input = els.chemistryInput.value.trim();
+        if (!input) return;
+        const instructions = {
+          analyze: 'Use RDKit to analyze this molecule. Return normalized identifiers, descriptors, Lipinski/QED heuristics, structural alerts, and a 2D depiction: ',
+          batch: 'Use RDKit to calculate a batch descriptor report for these molecules (put each Name, SMILES, or InChI on its own line): ',
+          resolve: 'Use RDKit and PubChem to resolve this chemical name, preserve the source URL and retrieval time, then analyze and depict it: ',
+          compare: 'Use RDKit to compare these molecules with Morgan fingerprint Tanimoto similarity, a maximum common substructure, and a depiction grid: ',
+          substructure: 'Use RDKit for a chirality-aware substructure search. Treat the first structure as the query and the remaining structures as targets: ',
+          reaction: 'Use RDKit to parse, validate, map, and depict this reaction SMILES or SMARTS: ',
+          pharmacophore: 'Use RDKit ETKDG conformers to generate ligand pharmacophore feature points for: ',
+          metabolism: 'Use RDKit to enumerate bounded Phase I and Phase II metabolism candidates with transformation provenance for: ',
+          dock: 'Dock this ligand and receptor with AutoDock Vina. Preserve the PDB identifier or explicit docking site, seed, score provenance, and the warning that scores are not affinities: ',
+          'dock-batch': 'Use low-compute batch docking for these ligands against the specified PDB receptor. Reuse receptor preparation, preserve the seed and protocol, and do not interpret scores as affinities: ',
+          'dock-hq': 'Run validated HQ multi-seed docking for these ligands against the specified PDB receptor. Require co-crystal redocking and preserve Vina/Vinardo ranks separately: ',
+          study: 'Analyze these target-fishing and docking records with the reproducible study workflow. Report tool coverage, consensus sensitivity, molecular-size bias, ligand efficiency, enrichment, and evidence-weighted priorities: '
+        };
+        els.message.value = instructions[els.chemistryOperation.value] + input;
+        els.useRdkit.checked = true;
+        saveConversationControls();
+        closeChemistryDialog();
+        autoSizeTextarea();
+        els.message.focus();
+      });
       els.googleConnect.addEventListener('click', function () { connectGoogleWorkspace().catch(function (error) { showToast(error.message); }); });
       els.closeGooglePicker.addEventListener('click', function () { els.googlePickerDialog.close(); });
       els.googlePickerSearch.addEventListener('submit', function (event) { event.preventDefault(); loadGoogleFiles().catch(function (error) { showToast(error.message); }); });
@@ -2132,6 +2185,7 @@
         document.body.classList.remove('sidebar-open');
       });
       els.useRag.addEventListener('change', saveConversationControls);
+      els.useRdkit.addEventListener('change', saveConversationControls);
       els.apiBase.addEventListener('change', function () { els.apiBase.value = normalizeBase(els.apiBase.value); localStorage.setItem(API_KEY, els.apiBase.value); });
       els.theme.addEventListener('change', function () { applyTheme(els.theme.value, true); });
       els.themeToggle.addEventListener('click', function () { applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark', true); });
