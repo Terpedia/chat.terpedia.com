@@ -982,10 +982,12 @@
 
   <script src="https://unpkg.com/lucide@1.24.0/dist/umd/lucide.min.js"></script>
   <script>
-    window.TERPEDIA_CHAT_CONFIG = window.TERPEDIA_CHAT_CONFIG || {
+    // Keep the production backend as a safe default even when a hosting
+    // layer injects an empty or partial TERPEDIA_CHAT_CONFIG object.
+    window.TERPEDIA_CHAT_CONFIG = Object.assign({
       apiBaseUrl: 'https://api.terpedia.com',
       plan: 'all_access'
-    };
+    }, window.TERPEDIA_CHAT_CONFIG || {});
   </script>
   <script>
     (function () {
@@ -1072,7 +1074,10 @@
       if (popoutProject) document.body.classList.add('popout-project');
       const sessionKey = localStorage.getItem(USER_KEY) || 'terpedia:' + newId();
       localStorage.setItem(USER_KEY, sessionKey);
-      els.apiBase.value = normalizeBase(params.get('api') || localStorage.getItem(API_KEY) || window.TERPEDIA_CHAT_CONFIG.apiBaseUrl);
+      const configuredApiBase = normalizeBase(window.TERPEDIA_CHAT_CONFIG.apiBaseUrl);
+      const savedApiBase = normalizeBase(localStorage.getItem(API_KEY));
+      const requestedApiBase = normalizeBase(params.get('api'));
+      els.apiBase.value = requestedApiBase || savedApiBase || configuredApiBase || 'https://api.terpedia.com';
       els.theme.value = localStorage.getItem(THEME_KEY) || 'light';
 
       let conversations = readConversations();
@@ -1148,7 +1153,16 @@
         hydrateIcons();
       }
 
-      function normalizeBase(value) { return String(value || '').trim().replace(/\/+$/, ''); }
+      function normalizeBase(value) {
+        const normalized = String(value || '').trim().replace(/\/+$/, '');
+        if (!normalized) return '';
+        try {
+          const parsed = new URL(normalized);
+          return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? normalized : '';
+        } catch (error) {
+          return '';
+        }
+      }
       function escapeHtml(value) {
         return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
       }
