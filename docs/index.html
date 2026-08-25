@@ -986,6 +986,7 @@
     // layer injects an empty or partial TERPEDIA_CHAT_CONFIG object.
     window.TERPEDIA_CHAT_CONFIG = Object.assign({
       apiBaseUrl: 'https://api.terpedia.com',
+      defaultAgent: 'terpedia_agent',
       plan: 'all_access'
     }, window.TERPEDIA_CHAT_CONFIG || {});
   </script>
@@ -1953,6 +1954,7 @@
         const attachmentIntent = workflows.includes('coa') ? 'coa' : workflows.includes('product-photo') ? 'product-photo' : workflows.includes('document') ? 'document' : '';
         const body = {
           message: message,
+          agent: window.TERPEDIA_CHAT_CONFIG.defaultAgent || 'terpedia_agent',
           user_id: sessionKey + ':' + activeId,
           plan: window.TERPEDIA_CHAT_CONFIG.plan || 'all_access',
           username: 'terpedia_guest',
