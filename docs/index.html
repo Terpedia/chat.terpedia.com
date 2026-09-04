@@ -1,0 +1,2301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f7f5f0">
+  <title>Terpedia Chat</title>
+  <script>
+    (function () {
+      const saved = localStorage.getItem('terpedia_chat_theme') || 'light';
+      const dark = saved === 'dark' || (saved === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&family=PT+Serif:wght@400;700&family=Playfair+Display:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/dockview@7.0.2/dist/styles/dockview.css">
+  <style>
+    :root {
+      --sidebar: #ebe9e4;
+      --canvas: #f7f5f0;
+      --surface: #efede7;
+      --surface-strong: #e2ded5;
+      --ink: #29201a;
+      --muted: #746c64;
+      --line: #d8d2c8;
+      --brand: #37a95d;
+      --brand-strong: #247b43;
+      --gold: #c6a84f;
+      --blue: #315f99;
+      --danger: #a63d3d;
+      --warning: #9a5a18;
+      --topbar-bg: rgba(247, 245, 240, 0.96);
+      --composer-bg: rgba(247, 245, 240, 0.97);
+      --sidebar-hover: #e2dfd7;
+      --sidebar-active: #dcd8cf;
+      --user-bubble: #e3eee5;
+      --danger-soft: #f4dddd;
+      --pdf-soft: #f7ecec;
+      --drop-bg: #edf5ec;
+      --shadow: rgba(41, 32, 26, 0.12);
+      --sidebar-width: 276px;
+      --topbar-height: 58px;
+      --composer-width: 820px;
+      color-scheme: light;
+    }
+
+    :root[data-theme="dark"] {
+      --sidebar: #191714;
+      --canvas: #24211d;
+      --surface: #2e2a25;
+      --surface-strong: #3a342e;
+      --ink: #f1efed;
+      --muted: #b6aea4;
+      --line: #4b433a;
+      --brand: #63c37f;
+      --brand-strong: #7ad593;
+      --gold: #d7bb66;
+      --blue: #84aee0;
+      --danger: #ee8c8c;
+      --warning: #e0a05f;
+      --topbar-bg: rgba(36, 33, 29, 0.96);
+      --composer-bg: rgba(36, 33, 29, 0.98);
+      --sidebar-hover: #302b26;
+      --sidebar-active: #39332d;
+      --user-bubble: #314438;
+      --danger-soft: #472d2d;
+      --pdf-soft: #422f31;
+      --drop-bg: #283a2e;
+      --shadow: rgba(0, 0, 0, 0.34);
+      color-scheme: dark;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { height: 100%; }
+
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: "PT Serif", Georgia, serif;
+      color: var(--ink);
+      background: var(--canvas);
+    }
+
+    button, input, select, textarea {
+      font-family: Montserrat, system-ui, sans-serif;
+      letter-spacing: 0;
+    }
+    button { color: inherit; }
+    button, select { cursor: pointer; }
+    button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+      outline: 2px solid var(--brand);
+      outline-offset: 2px;
+    }
+
+    .icon { width: 18px; height: 18px; stroke-width: 1.8; flex: 0 0 auto; }
+    .icon-button {
+      width: 36px;
+      height: 36px;
+      display: inline-grid;
+      place-items: center;
+      border: 0;
+      border-radius: 5px;
+      background: transparent;
+    }
+    .icon-button[hidden] { display: none; }
+    .icon-button:hover { background: var(--surface-strong); }
+
+    .app { height: 100dvh; display: flex; }
+
+    /* A popped-out project gets the full browser tab without duplicating chat chrome. */
+    body.popout-project .sidebar { display: none; }
+    body.popout-project .workspace { display: block; background: var(--canvas); }
+    body.popout-project .workspace > .main,
+    body.popout-project .workspace > .dv-dockview { display: none; }
+    body.popout-project .workspace > .project-pane,
+    body.popout-project .workspace > .project-pane[hidden] {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      display: flex;
+      width: 100%;
+      height: 100dvh;
+    }
+
+    .workspace {
+      flex: 1;
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr);
+      grid-template-areas: "chat";
+      background: var(--line);
+      gap: 1px;
+    }
+    .workspace[data-layout="right"] { grid-template-columns: minmax(360px, 1fr) clamp(360px, 42vw, 760px); grid-template-areas: "chat project"; }
+    .workspace[data-layout="left"] { grid-template-columns: clamp(360px, 42vw, 760px) minmax(360px, 1fr); grid-template-areas: "project chat"; }
+    .workspace[data-layout="bottom"] { grid-template-rows: minmax(300px, 1fr) clamp(260px, 42vh, 560px); grid-template-areas: "project" "chat"; }
+    .workspace:not([data-layout="chat"]) .chat-heading { display: none; }
+    .workspace:not([data-layout="chat"]) #top-settings { display: none; }
+    .workspace:not([data-layout="chat"]) .guest-session-label { display: none; }
+    .workspace:not([data-layout="chat"]) .topbar { padding-inline: 8px; gap: 7px; }
+    .workspace[data-layout="bottom"] .empty-state { min-height: 100%; padding: 8px 16px 116px; }
+    .workspace[data-layout="bottom"] .empty-inner img,
+    .workspace[data-layout="bottom"] .empty-inner p,
+    .workspace[data-layout="bottom"] .suggestions { display: none; }
+    .workspace[data-layout="bottom"] .empty-inner h1 { margin: 0; font-size: 19px; }
+
+    /* Dockview mounts only when a second workspace panel is needed. */
+    .workspace.dockview-active { display: block; position: relative; }
+    .workspace.dockview-active .dv-dockview { --dv-group-view-background-color: var(--canvas); --dv-tabs-and-actions-container-background-color: var(--surface); --dv-activegroup-visiblepanel-tab-background-color: var(--canvas); --dv-activegroup-visiblepanel-tab-color: var(--ink); --dv-tab-divider-color: var(--line); --dv-separator-border: var(--line); }
+    .workspace.dockview-active .dv-tab { font: 10px Montserrat, system-ui, sans-serif; }
+    .workspace.dockview-active .dv-content-container { background: var(--canvas); }
+    .workspace.dockview-active .main,
+    .workspace.dockview-active .project-pane { grid-area: auto; width: 100%; height: 100%; }
+    .workspace.dockview-active .project-pane[hidden] { display: flex; }
+    .workspace.dockview-active .topbar { flex: 0 0 var(--topbar-height); }
+    .workspace.dockview-active .composer-area { position: absolute; }
+    @media (max-width: 820px) {
+      .workspace.dockview-active { display: grid; }
+      .workspace.dockview-active .dv-dockview { display: none; }
+      .workspace.dockview-active .main { height: auto; }
+      .workspace.dockview-active .project-pane { height: auto; }
+    }
+
+    .sidebar {
+      width: var(--sidebar-width);
+      flex: 0 0 var(--sidebar-width);
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--sidebar);
+      border-right: 1px solid var(--line);
+      padding: 10px;
+      z-index: 20;
+    }
+
+    .sidebar-head {
+      height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 4px 8px;
+    }
+
+    .brand { display: flex; align-items: center; gap: 9px; min-width: 0; }
+    .brand img { width: 38px; height: 32px; object-fit: contain; }
+    .brand strong { font-family: "Playfair Display", Georgia, serif; font-size: 19px; font-weight: 500; letter-spacing: 0; white-space: nowrap; }
+
+    .new-chat {
+      min-height: 42px;
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: var(--canvas);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 12px;
+      font-size: 12px;
+      font-weight: 600;
+      text-align: left;
+    }
+    .new-chat:hover { border-color: var(--muted); background: var(--surface); }
+
+    .search-wrap { position: relative; margin: 10px 0 6px; }
+    .search-wrap .icon {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 15px;
+      height: 15px;
+      color: var(--muted);
+      pointer-events: none;
+    }
+    .search-wrap input {
+      width: 100%;
+      height: 34px;
+      border: 1px solid transparent;
+      border-radius: 5px;
+      background: transparent;
+      padding: 0 10px 0 32px;
+      color: var(--ink);
+      font-size: 13px;
+    }
+    .search-wrap input:focus { background: var(--canvas); border-color: var(--line); }
+
+    .history-label {
+      padding: 9px 9px 6px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      font-family: Montserrat, system-ui, sans-serif;
+      letter-spacing: 0;
+    }
+
+    .conversation-list { flex: 1; min-height: 0; overflow-y: auto; }
+    .conversation-row {
+      position: relative;
+      width: 100%;
+      min-height: 39px;
+      border-radius: 5px;
+      display: flex;
+      align-items: center;
+      margin: 1px 0;
+    }
+    .conversation-row.active { background: var(--sidebar-active); }
+    .conversation-row:hover { background: var(--sidebar-hover); }
+    .conversation-select {
+      width: 100%;
+      min-width: 0;
+      border: 0;
+      background: transparent;
+      text-align: left;
+      padding: 10px 36px 10px 10px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      font-family: Montserrat, system-ui, sans-serif;
+      font-size: 12px;
+    }
+    .conversation-delete {
+      position: absolute;
+      right: 4px;
+      width: 30px;
+      height: 30px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      display: none;
+      place-items: center;
+      color: var(--muted);
+    }
+    .conversation-row:hover .conversation-delete,
+    .conversation-row:focus-within .conversation-delete { display: grid; }
+    .conversation-delete:hover { color: var(--danger); background: var(--danger-soft); }
+
+    .sidebar-footer { border-top: 1px solid var(--line); padding-top: 8px; }
+    .sidebar-action {
+      width: 100%;
+      min-height: 40px;
+      border: 0;
+      border-radius: 5px;
+      background: transparent;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 10px;
+      font-size: 12px;
+      text-align: left;
+    }
+    .sidebar-action:hover { background: var(--sidebar-hover); }
+
+    .main { grid-area: chat; position: relative; min-width: 0; min-height: 0; height: auto; display: flex; flex-direction: column; background: var(--canvas); }
+    .topbar {
+      height: var(--topbar-height);
+      flex: 0 0 var(--topbar-height);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--line);
+      background: var(--topbar-bg);
+      z-index: 10;
+    }
+    .mobile-menu, .mobile-close { display: none; }
+    .chat-heading { min-width: 0; flex: 1; }
+    .chat-heading strong {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-family: "Playfair Display", Georgia, serif;
+      font-size: 15px;
+      font-weight: 500;
+    }
+    .chat-heading span { display: block; color: var(--muted); font-family: Montserrat, system-ui, sans-serif; font-size: 10px; margin-top: 2px; letter-spacing: 0; }
+
+    .top-controls { display: flex; align-items: center; gap: 8px; }
+    .layout-control { position: relative; }
+    .layout-menu {
+      position: absolute;
+      top: calc(100% + 7px);
+      right: 0;
+      z-index: 45;
+      display: flex;
+      gap: 3px;
+      margin: 0;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--canvas);
+      padding: 4px;
+      box-shadow: 0 10px 30px var(--shadow);
+    }
+    .layout-menu[hidden] { display: none; }
+    .layout-menu .icon-button.active { color: var(--brand-strong); background: var(--surface-strong); }
+    .compact-select {
+      height: 34px;
+      max-width: 210px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: var(--canvas);
+      padding: 0 28px 0 10px;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .rag-toggle {
+      height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: var(--canvas);
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 0 10px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .rag-toggle input { width: 15px; height: 15px; accent-color: var(--brand); margin: 0; }
+    .connection-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--brand); }
+    .connection-dot.busy { background: var(--warning); }
+    .connection-dot.error { background: var(--danger); }
+    .guest-session {
+      height: 34px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: var(--canvas);
+      padding-left: 9px;
+      white-space: nowrap;
+    }
+    .guest-session[hidden] { display: none; }
+    .guest-session-label { color: var(--muted); font-size: 10px; font-weight: 700; text-transform: uppercase; }
+    .guest-countdown { min-width: 50px; font: 700 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink); }
+    .guest-countdown.ended { color: var(--danger); }
+    .join-button {
+      align-self: stretch;
+      border: 0;
+      border-left: 1px solid var(--line);
+      border-radius: 0 4px 4px 0;
+      background: var(--brand);
+      color: #fff;
+      padding: 0 11px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .join-button:hover { background: var(--brand-strong); }
+
+    .transcript {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      scroll-behavior: smooth;
+      background: var(--canvas);
+    }
+    .messages { width: 100%; padding: 24px 0 180px; }
+    .empty-state {
+      min-height: calc(100dvh - 250px);
+      display: grid;
+      place-items: center;
+      padding: 30px 20px;
+    }
+    .empty-inner { width: min(650px, 100%); text-align: center; }
+    .empty-inner img { width: 72px; height: 54px; object-fit: contain; }
+    .empty-inner h1 { margin: 14px 0 8px; color: var(--brand); font-family: "Playfair Display", Georgia, serif; font-size: 30px; font-weight: 500; line-height: 1.2; letter-spacing: 0; }
+    .empty-inner p { margin: 0 auto 24px; max-width: 520px; color: var(--muted); font-size: 15px; line-height: 1.55; }
+    .suggestions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; text-align: left; }
+    .suggestion {
+      min-height: 62px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      border-left: 3px solid var(--brand);
+      background: var(--surface);
+      padding: 11px 13px;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .suggestion:hover { background: var(--surface-strong); border-color: var(--brand); }
+    .suggestion strong { display: block; margin-bottom: 3px; font-family: "Playfair Display", Georgia, serif; font-size: 14px; font-weight: 500; }
+    .suggestion span { color: var(--muted); font-family: "PT Serif", Georgia, serif; }
+
+    .message-row { width: 100%; padding: 14px 22px; }
+    .message-row.assistant { background: var(--canvas); }
+    .message-inner { width: min(var(--composer-width), 100%); margin: 0 auto; display: flex; gap: 13px; }
+    .avatar {
+      width: 28px;
+      height: 28px;
+      flex: 0 0 28px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      display: grid;
+      place-items: center;
+      background: var(--surface);
+      color: var(--brand);
+    }
+    .avatar .icon { width: 16px; height: 16px; }
+    .avatar[data-agent] { color: var(--agent-color, var(--brand)); background: color-mix(in srgb, var(--agent-color, var(--brand)) 10%, var(--canvas)); }
+    .message-content { min-width: 0; flex: 1; font-size: 14px; line-height: 1.65; overflow-wrap: anywhere; }
+    .message-content p { margin: 0 0 11px; }
+    .message-content p:last-child { margin-bottom: 0; }
+    .message-content pre {
+      overflow-x: auto;
+      border-radius: 7px;
+      background: #202522;
+      color: #f0f3f1;
+      padding: 13px;
+      font-size: 12px;
+    }
+    .message-content code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
+    .message-content :not(pre) > code { background: var(--surface-strong); border-radius: 4px; padding: 2px 4px; }
+    .message-content ul { padding-left: 20px; }
+    .message-meta { color: var(--muted); font-family: Montserrat, system-ui, sans-serif; font-size: 10px; margin-top: 8px; letter-spacing: 0; }
+    .project-actions { display: flex; flex-wrap: wrap; gap: 7px; margin: 12px 0 2px; }
+    .project-action {
+      min-height: 34px;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: var(--surface);
+      color: var(--ink);
+      padding: 0 10px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .project-action:hover { border-color: var(--brand); background: var(--surface-strong); }
+    .project-action .icon { width: 15px; height: 15px; color: var(--brand-strong); }
+    .knowledge-citation { margin-left: 2px; font-family: Montserrat, system-ui, sans-serif; font-size: 0.68em; line-height: 0; vertical-align: super; }
+    .knowledge-citation a { color: var(--brand-strong); text-decoration: none; }
+    .knowledge-citation a:hover { text-decoration: underline; }
+    .message-references { margin-top: 12px; padding-top: 9px; border-top: 1px solid var(--line); }
+    .references-title { color: var(--muted); font-family: Montserrat, system-ui, sans-serif; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+    .references-list { margin: 6px 0 0; padding: 0; list-style: none; }
+    .reference-entry { margin: 4px 0; color: var(--muted); font-size: 11px; line-height: 1.45; scroll-margin-top: calc(var(--topbar-height) + 12px); }
+    .reference-entry:target { color: var(--ink); }
+    .reference-entry a { color: var(--brand-strong); text-decoration: none; }
+    .reference-entry a:hover { text-decoration: underline; }
+    .reference-id { margin-right: 5px; font-family: Montserrat, system-ui, sans-serif; font-size: 10px; font-weight: 700; }
+    .user .message-inner { justify-content: flex-end; }
+    .user .avatar { display: none; }
+    .user .message-content {
+      flex: 0 1 auto;
+      max-width: min(680px, 85%);
+      background: var(--user-bubble);
+      border-radius: 6px;
+      padding: 10px 13px;
+    }
+    .error-message .message-content { color: var(--danger); }
+
+    .message-attachments { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 9px; }
+    .message-image { width: 148px; aspect-ratio: 4 / 3; border-radius: 7px; object-fit: cover; border: 1px solid var(--line); }
+    .chemistry-figure { width: min(520px, 100%); margin: 0; }
+    .chemistry-figure .message-image { width: 100%; height: auto; aspect-ratio: auto; object-fit: contain; background: #fff; }
+    .chemistry-figure figcaption { margin-top: 4px; color: var(--muted); font-family: Montserrat, system-ui, sans-serif; font-size: 10px; }
+    .file-chip {
+      max-width: 260px;
+      height: 42px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--canvas);
+      padding: 0 10px;
+      font-size: 12px;
+    }
+    .file-chip .icon { color: var(--danger); }
+    .file-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .composer-area {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 12;
+      padding: 16px 20px calc(12px + env(safe-area-inset-bottom));
+      background: var(--composer-bg);
+      pointer-events: none;
+    }
+    .composer-stack { width: min(var(--composer-width), 100%); margin: 0 auto; pointer-events: auto; }
+    .drop-notice {
+      display: none;
+      border: 2px dashed var(--brand);
+      border-radius: 5px;
+      background: var(--drop-bg);
+      color: var(--brand-strong);
+      padding: 12px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    body.dragging .drop-notice { display: block; }
+    .attachment-tray { display: flex; gap: 8px; overflow-x: auto; padding: 0 2px 8px; }
+    .attachment-tray:empty { display: none; }
+    .attachment-card {
+      position: relative;
+      width: 126px;
+      height: 58px;
+      flex: 0 0 126px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--canvas);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 28px 7px 7px;
+      box-shadow: 0 3px 12px var(--shadow);
+    }
+    .attachment-card img { width: 42px; height: 42px; border-radius: 5px; object-fit: cover; }
+    .attachment-card .file-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 5px;
+      display: grid;
+      place-items: center;
+      background: var(--pdf-soft);
+      color: var(--danger);
+    }
+    .attachment-card .details { min-width: 0; }
+    .attachment-card strong, .attachment-card small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .attachment-card strong { font-size: 10px; }
+    .attachment-card small { color: var(--muted); font-size: 9px; margin-top: 3px; }
+    .remove-attachment {
+      position: absolute;
+      right: 4px;
+      top: 4px;
+      width: 22px;
+      height: 22px;
+      border: 0;
+      border-radius: 5px;
+      background: var(--surface);
+      display: grid;
+      place-items: center;
+    }
+    .remove-attachment:hover { color: var(--danger); }
+    .remove-attachment .icon { width: 13px; height: 13px; }
+
+    .composer-shell {
+      position: relative;
+      min-height: 58px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--canvas);
+      display: flex;
+      align-items: flex-end;
+      gap: 7px;
+      padding: 8px;
+      box-shadow: 0 4px 18px var(--shadow);
+    }
+    .composer-shell:focus-within { border-color: var(--gold); box-shadow: 0 4px 20px var(--shadow); }
+    .attach-button { margin-bottom: 1px; }
+    .attachment-menu {
+      position: absolute;
+      left: 0;
+      bottom: calc(100% + 8px);
+      z-index: 30;
+      width: min(260px, calc(100vw - 32px));
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--canvas);
+      padding: 5px;
+      box-shadow: 0 12px 34px rgba(20, 26, 23, .18);
+    }
+    .attachment-menu[hidden] { display: none; }
+    .attachment-action {
+      width: 100%;
+      min-height: 42px;
+      display: grid;
+      grid-template-columns: 30px minmax(0, 1fr);
+      align-items: center;
+      gap: 9px;
+      border: 0;
+      border-radius: 5px;
+      background: transparent;
+      color: var(--ink);
+      padding: 6px 8px;
+      text-align: left;
+    }
+    .attachment-action:hover, .attachment-action:focus-visible { background: var(--surface); }
+    .attachment-action .action-icon {
+      width: 30px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      border-radius: 6px;
+      background: var(--surface-strong);
+      color: var(--brand);
+    }
+    .attachment-action .icon { width: 16px; height: 16px; }
+    .attachment-action strong, .attachment-action small { display: block; }
+    .attachment-action strong { font-size: 12px; }
+    .attachment-action small { margin-top: 2px; color: var(--muted); font-size: 9px; }
+    .composer-shell textarea {
+      min-width: 0;
+      flex: 1;
+      min-height: 40px;
+      max-height: 170px;
+      border: 0;
+      outline: 0;
+      resize: none;
+      padding: 9px 4px 7px;
+      color: var(--ink);
+      background: transparent;
+      line-height: 1.45;
+      font-size: 14px;
+    }
+    .send-button {
+      width: 38px;
+      height: 38px;
+      flex: 0 0 38px;
+      border: 0;
+      border-radius: 5px;
+      display: grid;
+      place-items: center;
+      background: var(--brand);
+      color: #fff;
+    }
+    .send-button:hover { background: var(--brand-strong); }
+    .send-button:disabled { background: var(--surface-strong); color: var(--muted); cursor: not-allowed; }
+    .composer-note { margin: 7px 0 0; text-align: center; color: var(--muted); font-family: Montserrat, system-ui, sans-serif; font-size: 9px; letter-spacing: 0; }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 118px;
+      transform: translateX(-50%);
+      z-index: 60;
+      max-width: min(440px, calc(100vw - 30px));
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #202522;
+      color: #fff;
+      padding: 10px 13px;
+      font-size: 12px;
+      box-shadow: 0 8px 28px rgba(0,0,0,.2);
+    }
+    .toast[hidden] { display: none; }
+
+    dialog {
+      width: min(520px, calc(100vw - 28px));
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0;
+      color: var(--ink);
+      background: var(--canvas);
+      box-shadow: 0 20px 70px rgba(22, 28, 25, .25);
+    }
+    dialog::backdrop { background: rgba(20, 25, 22, .38); }
+    .dialog-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px; border-bottom: 1px solid var(--line); }
+    .dialog-head h2 { margin: 0; font-family: "Playfair Display", Georgia, serif; font-size: 18px; font-weight: 500; }
+    .settings-body { display: grid; gap: 15px; padding: 18px; }
+    .field { display: grid; gap: 6px; }
+    .field label { color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; }
+    .field input, .field select, .field textarea {
+      width: 100%;
+      min-height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--canvas);
+      padding: 0 10px;
+      color: var(--ink);
+    }
+    .field textarea { min-height: 96px; padding: 10px; resize: vertical; font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .settings-status { border: 1px solid var(--line); border-radius: 7px; background: var(--surface); padding: 11px; font-size: 12px; line-height: 1.5; color: var(--muted); }
+    .settings-status strong { color: var(--ink); }
+    .storage-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--line); border-radius: 7px; padding: 10px; }
+    .storage-row span { min-width: 0; color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .storage-row button { min-height: 34px; flex: 0 0 auto; border: 1px solid var(--line); border-radius: 7px; background: var(--canvas); padding: 0 11px; font-weight: 600; font-size: 12px; }
+    .auth-body { display: grid; gap: 12px; padding: 18px; }
+    .auth-provider {
+      width: 100%;
+      min-height: 46px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--ink);
+      color: var(--canvas);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .auth-provider:hover { background: var(--brand-strong); color: #fff; }
+    .auth-provider:disabled { background: var(--surface-strong); color: var(--muted); cursor: not-allowed; }
+    .auth-provider .icon { width: 17px; height: 17px; }
+    .auth-account { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); padding: 10px; }
+    .auth-account span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 12px; }
+    .auth-account button { min-height: 34px; border: 1px solid var(--line); border-radius: 5px; background: var(--canvas); padding: 0 11px; font-size: 11px; font-weight: 700; }
+    .composer-source-button { flex: 0 0 34px; }
+    .picker-tools { display: flex; gap: 8px; padding: 12px 18px; border-bottom: 1px solid var(--line); }
+    .picker-tools input { min-width: 0; flex: 1; min-height: 38px; border: 1px solid var(--line); border-radius: 7px; background: var(--canvas); color: var(--ink); padding: 0 10px; }
+    .picker-tools button, .dialog-actions button { min-height: 38px; border: 1px solid var(--line); border-radius: 7px; background: var(--canvas); color: var(--ink); padding: 0 13px; font-weight: 600; }
+    .drive-files { max-height: min(58vh, 480px); overflow-y: auto; padding: 8px 12px 14px; }
+    .drive-file { width: 100%; min-height: 54px; display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 10px; border: 0; border-radius: 7px; background: transparent; color: var(--ink); padding: 7px 8px; text-align: left; }
+    .drive-file:hover { background: var(--surface); }
+    .drive-file .file-icon { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 6px; background: var(--surface-strong); color: var(--brand); }
+    .drive-file .file-icon .icon { width: 17px; height: 17px; }
+    .drive-file strong, .drive-file small { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .drive-file strong { font-size: 12px; }
+    .drive-file small { margin-top: 3px; color: var(--muted); font-size: 10px; }
+    .drive-file > .icon { width: 16px; height: 16px; color: var(--muted); }
+    .picker-empty { padding: 32px 18px; color: var(--muted); text-align: center; font-size: 12px; line-height: 1.5; }
+    .workspace-preview { display: grid; gap: 13px; padding: 18px; }
+    .preview-summary { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 7px 12px; margin: 0; font-size: 12px; }
+    .preview-summary dt { color: var(--muted); }
+    .preview-summary dd { min-width: 0; margin: 0; overflow-wrap: anywhere; }
+    .preview-content { max-height: 240px; overflow: auto; margin: 0; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); padding: 11px; color: var(--ink); font: 11px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; }
+    .preview-notice { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 0 18px 18px; }
+    .dialog-actions .primary { border-color: var(--brand); background: var(--brand); color: #fff; }
+    .dialog-actions .primary:hover { background: var(--brand-strong); }
+    .dialog-actions button:disabled { opacity: .55; cursor: wait; }
+    .agent-mark {
+      width: 26px;
+      height: 26px;
+      flex: 0 0 26px;
+      display: grid;
+      place-items: center;
+      border-radius: 7px;
+      color: var(--agent-color, var(--brand));
+      background: color-mix(in srgb, var(--agent-color, var(--brand)) 11%, var(--canvas));
+    }
+    .agent-mark .icon { width: 15px; height: 15px; }
+
+    .project-pane { grid-area: project; min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--canvas); }
+    .project-pane[hidden] { display: none; }
+    .project-head { min-height: var(--topbar-height); display: flex; align-items: center; gap: 9px; padding: 0 10px 0 14px; border-bottom: 1px solid var(--line); background: var(--topbar-bg); }
+    .project-heading { min-width: 0; flex: 1; }
+    .project-heading strong, .project-heading span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .project-heading strong { font-family: "Playfair Display", Georgia, serif; font-size: 14px; font-weight: 500; }
+    .project-heading span { margin-top: 2px; color: var(--muted); font: 10px/1.2 Montserrat, system-ui, sans-serif; }
+    .project-tabs { min-height: 39px; display: flex; gap: 2px; overflow-x: auto; border-bottom: 1px solid var(--line); padding: 4px 7px; background: var(--surface); }
+    .project-tab { max-width: 220px; min-height: 30px; display: inline-flex; align-items: center; gap: 6px; border: 0; border-radius: 4px; background: transparent; padding: 0 9px; font-size: 10px; white-space: nowrap; }
+    .project-tab span { overflow: hidden; text-overflow: ellipsis; }
+    .project-tab.active { background: var(--canvas); color: var(--brand-strong); }
+    .project-tab .icon { width: 13px; height: 13px; }
+    .project-view { position: relative; flex: 1; min-height: 0; background: var(--surface); }
+    .project-frame { width: 100%; height: 100%; border: 0; background: #fff; }
+    .project-frame[hidden], .project-text[hidden], .project-empty[hidden] { display: none; }
+    .project-text { width: 100%; height: 100%; overflow: auto; margin: 0; padding: 20px; color: var(--ink); background: var(--canvas); font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; }
+    .project-empty { height: 100%; display: grid; place-items: center; padding: 24px; text-align: center; }
+    .project-empty-inner { max-width: 360px; }
+    .project-empty .icon { width: 30px; height: 30px; color: var(--brand); }
+    .project-empty strong { display: block; margin-top: 10px; font-family: "Playfair Display", Georgia, serif; font-size: 17px; font-weight: 500; }
+    .project-empty p { margin: 7px 0 14px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .project-open { min-height: 36px; display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--brand); border-radius: 5px; background: var(--brand); color: #fff; padding: 0 12px; font-size: 11px; font-weight: 700; }
+    .project-open[hidden] { display: none; }
+    .project-open:hover { background: var(--brand-strong); }
+
+    .sidebar-overlay { display: none; }
+
+    @media (max-width: 820px) {
+      .workspace[data-layout="right"], .workspace[data-layout="left"], .workspace[data-layout="bottom"] {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(260px, 1fr) minmax(230px, 42vh);
+        grid-template-areas: "project" "chat";
+      }
+      .sidebar {
+        position: fixed;
+        inset: 0 auto 0 0;
+        transform: translateX(-100%);
+        transition: transform .18s ease;
+        box-shadow: 10px 0 40px rgba(20, 26, 23, .18);
+      }
+      body.sidebar-open .sidebar { transform: translateX(0); }
+      .sidebar-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 19;
+        border: 0;
+        background: rgba(20, 25, 22, .32);
+      }
+      body.sidebar-open .sidebar-overlay { display: block; }
+      .mobile-menu, .mobile-close { display: inline-grid; }
+      .composer-area { left: 0; padding-inline: 12px; }
+      .topbar { padding: 0 10px; }
+    }
+
+    @media (max-width: 600px) {
+      .topbar .rag-toggle { display: none; }
+      .topbar { gap: 7px; }
+      #top-settings { display: none; }
+      .guest-session { gap: 5px; padding-left: 6px; }
+      .guest-session-label { display: none; }
+      .guest-countdown { min-width: 45px; font-size: 10px; }
+      .join-button { padding: 0 8px; }
+      .chat-heading span { display: none; }
+      .messages { padding-top: 12px; }
+      .message-row { padding: 12px 13px; }
+      .message-inner { gap: 9px; }
+      .user .message-content { max-width: 92%; }
+      .empty-inner h1 { font-size: 22px; }
+      .suggestions { grid-template-columns: 1fr; }
+      .suggestion:nth-child(n+4) { display: none; }
+      .composer-area { padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+      .composer-note { display: none; }
+      .message-image { width: 112px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" aria-label="Conversations">
+      <div class="sidebar-head">
+        <div class="brand"><img src="assets/terpedia-mark.webp" alt=""><strong>Terpedia</strong></div>
+        <button class="icon-button mobile-close" id="close-sidebar" type="button" aria-label="Close conversations" title="Close conversations"><i data-lucide="x"></i></button>
+      </div>
+      <button class="new-chat" id="new-chat" type="button"><i data-lucide="square-pen"></i><span>New chat</span></button>
+      <div class="search-wrap">
+        <i data-lucide="search"></i>
+        <input id="conversation-search" type="search" placeholder="Search chats" aria-label="Search conversations">
+      </div>
+      <div class="history-label">Conversations</div>
+      <nav class="conversation-list" id="conversation-list"></nav>
+      <div class="sidebar-footer">
+        <button class="sidebar-action" id="open-settings" type="button"><i data-lucide="settings-2"></i><span>Settings</span></button>
+      </div>
+    </aside>
+    <button class="sidebar-overlay" id="sidebar-overlay" type="button" aria-label="Close conversations"></button>
+
+    <div class="workspace" id="workspace" data-layout="chat">
+    <main class="main" id="chat-pane">
+      <header class="topbar">
+        <button class="icon-button mobile-menu" id="open-sidebar" type="button" aria-label="Open conversations" title="Open conversations"><i data-lucide="panel-left"></i></button>
+        <div class="chat-heading"><strong id="active-title">New chat</strong><span id="active-subtitle">Auto-routed Terpedia agents</span></div>
+        <div class="top-controls">
+          <label class="rag-toggle" title="Use retrieval-augmented generation"><input id="use-rag" type="checkbox" checked><span>RAG</span></label>
+          <label class="rag-toggle" title="Run deterministic chemistry with RDKit"><input id="use-rdkit" type="checkbox"><span>RDKit</span></label>
+          <div class="guest-session" id="guest-session" title="Guest time starts with your first message"><span class="guest-session-label">Guest</span><time class="guest-countdown" id="guest-countdown" datetime="PT1H">1:00:00</time><button class="join-button" id="join" type="button">Sign in</button></div>
+          <button class="icon-button" id="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode"><i data-lucide="moon"></i></button>
+          <div class="layout-control">
+            <button class="icon-button" id="workspace-layout" type="button" aria-label="Arrange workspace" title="Arrange workspace" aria-expanded="false"><i data-lucide="panels-top-left"></i></button>
+            <menu class="layout-menu" id="layout-menu" hidden>
+              <button class="icon-button" type="button" data-layout="chat" aria-label="Chat only" title="Chat only"><i data-lucide="panel-top"></i></button>
+              <button class="icon-button" type="button" data-layout="left" aria-label="Project on left" title="Project on left"><i data-lucide="panel-left"></i></button>
+              <button class="icon-button" type="button" data-layout="right" aria-label="Project on right" title="Project on right"><i data-lucide="panel-right"></i></button>
+              <button class="icon-button" type="button" data-layout="bottom" aria-label="Chat at bottom" title="Chat at bottom"><i data-lucide="panel-bottom"></i></button>
+            </menu>
+          </div>
+          <button class="icon-button" id="top-settings" type="button" aria-label="Open settings" title="Settings"><i data-lucide="sliders-horizontal"></i></button>
+          <span class="connection-dot" id="connection-dot" title="Ready"></span>
+        </div>
+      </header>
+
+      <section class="transcript" id="transcript" aria-live="polite">
+        <div class="messages" id="messages"></div>
+      </section>
+
+      <section class="composer-area">
+        <div class="composer-stack">
+          <div class="drop-notice">Drop PDFs or product photos here</div>
+          <div class="attachment-tray" id="attachment-tray"></div>
+          <form class="composer-shell" id="chat-form">
+            <input id="camera-input" type="file" accept="image/*" capture="environment" hidden>
+            <input id="product-photo-input" type="file" accept="image/*" multiple hidden>
+            <input id="coa-input" type="file" accept="image/*,application/pdf,.pdf" multiple hidden>
+            <input id="pdf-input" type="file" accept="application/pdf,.pdf" multiple hidden>
+            <div class="attachment-menu" id="attachment-menu" role="menu" aria-label="Add to chat" hidden>
+              <button class="attachment-action" type="button" role="menuitem" data-attachment-action="camera"><span class="action-icon"><i data-lucide="camera"></i></span><span><strong>Camera</strong><small>Take a product photo</small></span></button>
+              <button class="attachment-action" type="button" role="menuitem" data-attachment-action="product-photo"><span class="action-icon"><i data-lucide="images"></i></span><span><strong>Product photos</strong><small>Identify or compare products</small></span></button>
+              <button class="attachment-action" type="button" role="menuitem" data-attachment-action="coa"><span class="action-icon"><i data-lucide="file-scan"></i></span><span><strong>COA</strong><small>Parse laboratory results</small></span></button>
+              <button class="attachment-action" type="button" role="menuitem" data-attachment-action="document"><span class="action-icon"><i data-lucide="file-text"></i></span><span><strong>PDF</strong><small>Review a document</small></span></button>
+              <button class="attachment-action" type="button" role="menuitem" data-attachment-action="rdkit"><span class="action-icon"><i data-lucide="flask-conical"></i></span><span><strong>RDKit chemistry</strong><small>Analyze, compare, search, react, or dock molecules</small></span></button>
+            </div>
+            <button class="icon-button attach-button" id="attach" type="button" aria-label="Add to chat" title="Add to chat" aria-haspopup="menu" aria-expanded="false"><i data-lucide="plus"></i></button>
+            <button class="icon-button composer-source-button" id="google-drive" type="button" aria-label="Attach from Google Drive" title="Attach from Google Drive" hidden><i data-lucide="hard-drive"></i></button>
+            <textarea id="message" rows="1" placeholder="Message Terpedia" aria-label="Message Terpedia"></textarea>
+            <button class="send-button" id="send" type="submit" aria-label="Send message" title="Send message"><i data-lucide="arrow-up"></i></button>
+          </form>
+          <p class="composer-note">Terpedia can make mistakes. Verify important medical, legal, and product information.</p>
+        </div>
+      </section>
+    </main>
+    <section class="project-pane" id="project-pane" aria-label="Project workspace" hidden>
+      <header class="project-head">
+        <div class="project-heading"><strong id="project-title">Project</strong><span id="project-subtitle">Research artifacts</span></div>
+        <button class="icon-button" id="project-external" type="button" aria-label="Pop out project panel" title="Pop out project panel" hidden><i data-lucide="external-link"></i></button>
+        <button class="icon-button" id="close-project" type="button" aria-label="Close project workspace" title="Close project workspace"><i data-lucide="x"></i></button>
+      </header>
+      <nav class="project-tabs" id="project-tabs" aria-label="Project artifacts"></nav>
+      <div class="project-view">
+        <iframe class="project-frame" id="project-frame" title="Project artifact" hidden></iframe>
+        <pre class="project-text" id="project-text" hidden></pre>
+        <div class="project-empty" id="project-empty"><div class="project-empty-inner"><i data-lucide="folder-kanban"></i><strong>Project workspace</strong><p>Colab notebooks and report exports from this conversation appear here.</p><button class="project-open" id="project-open" type="button" hidden><i data-lucide="external-link"></i><span>Open</span></button></div></div>
+      </div>
+    </section>
+    </div>
+  </div>
+
+  <dialog id="settings-dialog">
+    <div class="dialog-head"><h2>Chat settings</h2><button class="icon-button" id="close-settings" type="button" aria-label="Close settings"><i data-lucide="x"></i></button></div>
+    <div class="settings-body">
+      <div class="field"><label for="model">Model</label><select id="model"><option value="">Gemini default</option><option value="gemini-2.5-flash">Gemini 2.5 Flash</option><option value="gemini-2.5-pro">Gemini 2.5 Pro</option></select></div>
+      <div class="field"><label for="theme">Appearance</label><select id="theme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></div>
+      <div class="field"><label for="api-base">Backend API</label><input id="api-base" type="url" autocomplete="off" spellcheck="false"></div>
+      <div class="field"><label>Account</label><div class="storage-row"><span id="account-status">Guest</span><button id="account-action" type="button">Sign in</button></div></div>
+      <div class="field" id="github-storage" hidden><label>GitHub project storage</label><div class="storage-row"><span id="github-status">Checking GitHub</span><button id="github-connect" type="button">Sync now</button></div></div>
+      <div class="field" id="google-storage" hidden><label>Google Workspace</label><div class="storage-row"><span id="google-status">Google Drive not connected</span><button id="google-connect" type="button">Connect Google</button></div></div>
+      <div class="settings-status" id="status"><strong>Ready.</strong> Agent routing, RAG, PDF text, and image analysis run through the Terpedia backend.</div>
+    </div>
+  </dialog>
+  <dialog id="auth-dialog">
+    <div class="dialog-head"><h2>Sign in to Terpedia</h2><button class="icon-button" id="close-auth" type="button" aria-label="Close sign in"><i data-lucide="x"></i></button></div>
+    <div class="auth-body">
+      <button class="auth-provider" id="github-signin" type="button"><i data-lucide="github"></i><span>Continue with GitHub</span></button>
+      <div class="auth-account" id="signed-in-account" hidden><span id="signed-in-status">Signed in</span><button id="sign-out" type="button">Sign out</button></div>
+    </div>
+  </dialog>
+  <dialog id="chemistry-dialog">
+    <div class="dialog-head"><h2>RDKit chemistry</h2><button class="icon-button" id="close-chemistry" type="button" aria-label="Close RDKit chemistry"><i data-lucide="x"></i></button></div>
+    <form id="chemistry-form">
+      <div class="settings-body">
+        <div class="field"><label for="chemistry-operation">Operation</label><select id="chemistry-operation"><option value="analyze">Analyze descriptors and structure</option><option value="batch">Batch descriptors</option><option value="resolve">Resolve PubChem name</option><option value="compare">Fingerprint similarity and MCS</option><option value="substructure">Substructure search</option><option value="reaction">Reaction analysis</option><option value="pharmacophore">3D pharmacophore</option><option value="metabolism">Phase I/II metabolism candidates</option><option value="dock">Protein docking</option><option value="dock-batch">Low-compute batch docking</option><option value="dock-hq">Validated multi-seed batch docking</option><option value="study">Target-fishing/docking study analysis</option></select></div>
+        <div class="field"><label for="chemistry-input">Chemical input</label><textarea id="chemistry-input" required spellcheck="false" placeholder="Name: limonene&#10;or SMILES: CC1=CCC(CC1)C(=C)C"></textarea></div>
+        <div class="settings-status"><strong>Deterministic tools.</strong> RDKit values are computed, not experimental. Docking uses AutoDock Vina and reports ranking estimates—not measured affinity.</div>
+      </div>
+      <div class="dialog-actions"><button id="cancel-chemistry" type="button">Cancel</button><button class="primary" type="submit">Add to message</button></div>
+    </form>
+  </dialog>
+  <dialog id="google-picker-dialog">
+    <div class="dialog-head"><h2>Google Drive</h2><button class="icon-button" id="close-google-picker" type="button" aria-label="Close Google Drive"><i data-lucide="x"></i></button></div>
+    <form class="picker-tools" id="google-picker-search"><input id="google-file-query" type="search" placeholder="Search Docs, Sheets, and Slides" aria-label="Search Google Drive"><button type="submit">Search</button></form>
+    <div class="drive-files" id="google-file-list"><div class="picker-empty">Connect Google Workspace to attach a file.</div></div>
+  </dialog>
+  <dialog id="workspace-confirm-dialog">
+    <div class="dialog-head"><h2>Confirm Google Workspace write</h2><button class="icon-button" id="close-workspace-confirm" type="button" aria-label="Cancel Google Workspace write"><i data-lucide="x"></i></button></div>
+    <div class="workspace-preview" id="workspace-preview"></div>
+    <div class="dialog-actions"><button id="cancel-workspace-write" type="button">Cancel</button><button class="primary" id="confirm-workspace-write" type="button">Confirm write</button></div>
+  </dialog>
+  <div class="toast" id="toast" role="status" hidden></div>
+
+  <script src="https://unpkg.com/lucide@1.24.0/dist/umd/lucide.min.js"></script>
+  <script>
+    // Keep the production backend as a safe default even when a hosting
+    // layer injects an empty or partial TERPEDIA_CHAT_CONFIG object.
+    window.TERPEDIA_CHAT_CONFIG = Object.assign({
+      apiBaseUrl: 'https://api.terpedia.com',
+      plan: 'all_access'
+    }, window.TERPEDIA_CHAT_CONFIG || {});
+  </script>
+  <script>
+    (function () {
+      'use strict';
+
+      const STORAGE_KEY = 'terpedia_chat_conversations_v2';
+      const ACTIVE_KEY = 'terpedia_chat_active_conversation';
+      const API_KEY = 'terpedia_chat_api_base';
+      const USER_KEY = 'terpedia_chat_user_id';
+      const THEME_KEY = 'terpedia_chat_theme';
+      const AUTH_KEY = 'terpedia_chat_auth_token';
+      const GUEST_SESSION_END_KEY = 'terpedia_guest_session_ends_at';
+      const LAYOUT_KEY = 'terpedia_chat_workspace_layout';
+      const DOCKVIEW_LAYOUT_KEY = 'terpedia_chat_dockview_layout_v1';
+      const MAX_IMAGES = 3;
+      const MAX_DOCUMENTS = 3;
+      const MAX_PDF_BYTES = 15 * 1024 * 1024;
+      const MAX_DOCUMENT_CHARS = 15000;
+      const MAX_IMAGE_BYTES = 950 * 1024;
+
+      const agentNames = {
+        terpedia_agent: 'Terpedia Multi-Agent', compliance: 'Compliance Agent', formulation: 'Formulation Agent',
+        operations: 'Operations Agent', marketing: 'Marketing Agent', sourcing: 'Sourcing Agent', patent: 'Patent Agent',
+        spectra: 'Spectra Agent', customer_success: 'Customer Success Agent', cannabis_researcher: 'Cannabis Researcher',
+        terpene_scientist: 'Terpene Scientist', coa_analyst: 'COA Analyst', cultivation_advisor: 'Cultivation Advisor',
+        medical_literature: 'Medical Literature', veterinary_cannabis: 'Veterinary Cannabis', functional_products: 'Functional Products',
+        product_intelligence: 'Product Intelligence', citizen_science_guide: 'Citizen Science Guide', publication_editor: 'Editor Agent', mcr: 'MCR Agent', ad: 'Ad Agent',
+        tersona_terpenequeen: 'TerpeneQueen', tersona_limonene: 'Limonene', tersona_myrcene: 'Myrcene',
+        tersona_pinene: 'Alpha-Pinene', tersona_linalool: 'Linalool', tersona_caryophyllene: 'Beta-Caryophyllene',
+        tersona_humulene: 'Humulene', tersona_terpinolene: 'Terpinolene', tersona_ocimene: 'Ocimene',
+        tersona_bisabolol: 'Bisabolol', tersona_geraniol: 'Geraniol'
+      };
+
+      const agentVisuals = {
+        terpedia_agent: ['bot', '#29735d'], panel_moderator: ['messages-square', '#29735d'],
+        cannabis_researcher: ['book-open', '#34785f'], terpene_scientist: ['flask-conical', '#5a7f35'],
+        coa_analyst: ['file-scan', '#39738c'], cultivation_advisor: ['sprout', '#4d7a3b'],
+        medical_literature: ['library', '#536da8'], veterinary_cannabis: ['stethoscope', '#987044'],
+        functional_products: ['package-open', '#8a5a83'], product_intelligence: ['scan-search', '#596b83'],
+        citizen_science_guide: ['users-round', '#397f79'], publication_editor: ['pen-line', '#8a5a43'],
+        tersona_terpenequeen: ['crown', '#a36b16'], tersona_limonene: ['sun', '#b78312'],
+        tersona_myrcene: ['moon', '#536b9b'], tersona_pinene: ['triangle', '#36724d'],
+        tersona_linalool: ['flower-2', '#775e9d'], tersona_caryophyllene: ['shield', '#9b4f55'],
+        tersona_humulene: ['leaf', '#6b7336'], tersona_terpinolene: ['waves', '#357a78'],
+        tersona_ocimene: ['wind', '#4f7a9b'], tersona_bisabolol: ['sparkles', '#a06f86'],
+        tersona_geraniol: ['flower', '#a54f68'],
+        compliance: ['scale', '#596b83'], formulation: ['beaker', '#7b5b98'], operations: ['settings', '#5f6c72'],
+        marketing: ['megaphone', '#a65f3f'], sourcing: ['truck', '#74723c'], patent: ['badge-check', '#476d91'],
+        spectra: ['scan-line', '#5d61a2'], customer_success: ['heart-handshake', '#9a5968'], mcr: ['clipboard-check', '#486b5e'], ad: ['badge-dollar-sign', '#8a6a31']
+      };
+
+      const els = {};
+      ['conversation-list', 'conversation-search', 'new-chat', 'use-rag', 'use-rdkit', 'model', 'api-base', 'status',
+        'active-title', 'active-subtitle', 'messages', 'transcript', 'chat-form', 'message', 'send', 'attach', 'attachment-menu',
+        'camera-input', 'product-photo-input', 'coa-input', 'pdf-input',
+        'attachment-tray', 'settings-dialog', 'open-settings', 'top-settings', 'close-settings', 'open-sidebar', 'close-sidebar',
+        'sidebar-overlay', 'connection-dot', 'theme-toggle', 'theme', 'github-storage', 'github-status', 'github-connect',
+        'account-status', 'account-action', 'auth-dialog', 'close-auth', 'github-signin', 'signed-in-account', 'signed-in-status', 'sign-out',
+        'chemistry-dialog', 'chemistry-form', 'chemistry-operation', 'chemistry-input', 'close-chemistry', 'cancel-chemistry',
+        'guest-session', 'guest-countdown', 'join',
+        'workspace', 'chat-pane', 'workspace-layout', 'layout-menu', 'project-pane', 'project-title', 'project-subtitle', 'project-tabs',
+        'project-frame', 'project-text', 'project-empty', 'project-open', 'project-external', 'close-project',
+        'google-storage', 'google-status', 'google-connect', 'google-drive', 'google-picker-dialog', 'close-google-picker',
+        'google-picker-search', 'google-file-query', 'google-file-list', 'workspace-confirm-dialog', 'close-workspace-confirm',
+        'workspace-preview', 'cancel-workspace-write', 'confirm-workspace-write', 'toast'].forEach(function (id) {
+        els[id.replace(/-([a-z])/g, function (_, char) { return char.toUpperCase(); })] = document.getElementById(id);
+      });
+
+      function newId() {
+        if (window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
+        if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
+          const bytes = window.crypto.getRandomValues(new Uint8Array(16));
+          bytes[6] = (bytes[6] & 15) | 64;
+          bytes[8] = (bytes[8] & 63) | 128;
+          return Array.from(bytes, function (byte) { return byte.toString(16).padStart(2, '0'); })
+            .join('').replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, '$1-$2-$3-$4-$5');
+        }
+        return 'fallback-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+      }
+
+      const params = new URLSearchParams(window.location.search);
+      const popoutProject = params.get('popout') === 'project';
+      const popoutConversationId = params.get('conversation');
+      if (popoutProject) document.body.classList.add('popout-project');
+      const sessionKey = localStorage.getItem(USER_KEY) || 'terpedia:' + newId();
+      localStorage.setItem(USER_KEY, sessionKey);
+      const configuredApiBase = normalizeBase(window.TERPEDIA_CHAT_CONFIG.apiBaseUrl);
+      const savedApiBase = normalizeBase(localStorage.getItem(API_KEY));
+      const requestedApiBase = normalizeBase(params.get('api'));
+      els.apiBase.value = requestedApiBase || savedApiBase || configuredApiBase || 'https://api.terpedia.com';
+      els.theme.value = localStorage.getItem(THEME_KEY) || 'light';
+
+      let conversations = readConversations();
+      let activeId = localStorage.getItem(ACTIVE_KEY);
+      let attachments = [];
+      let busy = false;
+      let dragDepth = 0;
+      let toastTimer = null;
+      let pdfModulePromise = null;
+      let syncTimer = null;
+      let pendingWorkspaceAction = null;
+      let pendingTerproductAction = null;
+      let googleWorkspaceConnected = false;
+      let guestSessionEndsAt = Number(localStorage.getItem(GUEST_SESSION_END_KEY) || 0);
+      let memberAllowance = null;
+      let guestCountdownTimer = null;
+      let projectArtifacts = [];
+      let activeProjectArtifactId = null;
+      let projectObjectUrl = '';
+      let dockview = null;
+      let dockviewPromise = null;
+      let githubAuthEnabled = false;
+      const utcDayStart = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate());
+      if (guestSessionEndsAt && guestSessionEndsAt < utcDayStart) {
+        guestSessionEndsAt = 0;
+        localStorage.removeItem(GUEST_SESSION_END_KEY);
+      }
+
+      if (!conversations.length) conversations.push(createConversation());
+      if (!conversations.some(function (conversation) { return conversation.id === activeId; })) activeId = conversations[0].id;
+      if (popoutConversationId && conversations.some(function (conversation) { return conversation.id === popoutConversationId; })) activeId = popoutConversationId;
+      syncControlsFromConversation();
+      renderAll();
+      hydrateIcons();
+      applyTheme(els.theme.value, false);
+      acceptGithubCallback();
+      startGuestCountdown();
+      configureGithubStorage();
+      configureGoogleWorkspace();
+      setWorkspaceLayout(popoutProject ? 'chat' : (localStorage.getItem(LAYOUT_KEY) || 'chat'), false);
+      if (popoutProject) {
+        els.projectPane.hidden = false;
+        syncProjectArtifacts();
+        const requestedArtifactId = params.get('artifact');
+        if (requestedArtifactId && projectArtifacts.some(function (artifact) { return artifact.id === requestedArtifactId; })) {
+          showProjectArtifact(requestedArtifactId);
+        } else {
+          clearProjectView();
+          els.projectTitle.textContent = 'Project workspace';
+          els.projectSubtitle.textContent = 'Research artifacts';
+        }
+      }
+
+      function hydrateIcons() {
+        if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons({ attrs: { 'aria-hidden': 'true', class: 'icon' } });
+      }
+
+      function agentVisual(agentId) {
+        const visual = agentVisuals[agentId] || ['bot', '#29735d'];
+        return { icon: visual[0], color: visual[1] };
+      }
+
+      function applyTheme(preference, persistPreference) {
+        const systemDark = matchMedia('(prefers-color-scheme: dark)').matches;
+        const dark = preference === 'dark' || (preference === 'system' && systemDark);
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        document.querySelector('meta[name="theme-color"]').content = dark ? '#24211d' : '#f7f5f0';
+        if (persistPreference) localStorage.setItem(THEME_KEY, preference);
+        els.theme.value = preference;
+        els.themeToggle.innerHTML = '<i data-lucide="' + (dark ? 'sun' : 'moon') + '"></i>';
+        els.themeToggle.setAttribute('aria-label', dark ? 'Use light mode' : 'Use dark mode');
+        els.themeToggle.title = dark ? 'Use light mode' : 'Use dark mode';
+        applyDockviewTheme();
+        hydrateIcons();
+      }
+
+      function normalizeBase(value) {
+        const normalized = String(value || '').trim().replace(/\/+$/, '');
+        if (!normalized) return '';
+        try {
+          const parsed = new URL(normalized);
+          return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? normalized : '';
+        } catch (error) {
+          return '';
+        }
+      }
+      function escapeHtml(value) {
+        return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+      }
+      function formatBytes(bytes) {
+        if (!Number.isFinite(bytes)) return '';
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+      }
+      function plainText(value) { return String(value || '').replace(/[#*`_>\[\]()]/g, '').replace(/\s+/g, ' ').trim(); }
+      function safeExternalUrl(value) {
+        try { const url = new URL(String(value || '')); return /^https?:$/.test(url.protocol) ? url.href : ''; } catch (error) { return ''; }
+      }
+      function readerUrl(value) {
+        const safeUrl = safeExternalUrl(value);
+        if (!safeUrl) return '';
+        try {
+          const url = new URL(safeUrl);
+          const match = url.hostname === 'pubmed.ncbi.nlm.nih.gov' && url.pathname.match(/^\/(\d+)(?:\/|$)/);
+          if (match) return '/pubmed?pmid=' + encodeURIComponent(match[1]);
+          const trialMatch = /(?:^|\.)clinicaltrials\.gov$/.test(url.hostname) && url.pathname.match(/^\/study\/(NCT\d{8})(?:\/|$)/i);
+          return trialMatch ? '/clinicaltrials?nct=' + encodeURIComponent(trialMatch[1].toUpperCase()) : safeUrl;
+        } catch (error) { return safeUrl; }
+      }
+
+      function setWorkspaceLayout(layout, persistLayout) {
+        const allowed = ['chat', 'left', 'right', 'bottom'];
+        const next = allowed.includes(layout) ? layout : 'chat';
+        els.workspace.dataset.layout = next;
+        els.layoutMenu.hidden = true;
+        els.workspaceLayout.setAttribute('aria-expanded', 'false');
+        Array.from(els.layoutMenu.querySelectorAll('[data-layout]')).forEach(function (button) {
+          button.classList.toggle('active', button.dataset.layout === next);
+        });
+        if (persistLayout !== false) localStorage.setItem(LAYOUT_KEY, next);
+        if (next === 'chat') {
+          disableDockview();
+          els.projectPane.hidden = true;
+        } else {
+          els.projectPane.hidden = false;
+          ensureDockview(next).catch(function (error) {
+            console.warn('Dockview unavailable; using the workspace fallback.', error);
+            showToast('Draggable workspace unavailable; using the standard layout.');
+          });
+        }
+        requestAnimationFrame(scrollToBottom);
+      }
+
+      function dockviewThemeClass() {
+        return document.documentElement.dataset.theme === 'dark' ? 'dockview-theme-dark' : 'dockview-theme-light';
+      }
+
+      function applyDockviewTheme() {
+        if (!dockview) return;
+        els.workspace.classList.remove('dockview-theme-light', 'dockview-theme-dark');
+        els.workspace.classList.add(dockviewThemeClass());
+      }
+
+      function persistDockviewLayout() {
+        if (!dockview || typeof dockview.toJSON !== 'function') return;
+        try { localStorage.setItem(DOCKVIEW_LAYOUT_KEY, JSON.stringify(dockview.toJSON())); } catch (error) { /* Ignore storage quota errors. */ }
+      }
+
+      function dockviewPosition(layout) {
+        return { direction: layout === 'bottom' ? 'below' : layout === 'left' ? 'left' : 'right', referencePanel: 'chat-panel' };
+      }
+
+      function disableDockview() {
+        if (!dockview) return;
+        const chatPane = els.chatPane;
+        const projectPane = els.projectPane;
+        try { dockview.dispose(); } catch (error) { console.warn('Could not dispose Dockview cleanly.', error); }
+        dockview = null;
+        dockviewPromise = null;
+        els.workspace.classList.remove('dockview-active', 'dockview-theme-light', 'dockview-theme-dark');
+        els.workspace.replaceChildren(chatPane, projectPane);
+      }
+
+      function ensureDockview(layout) {
+        if (window.matchMedia('(max-width: 820px)').matches) return Promise.resolve(false);
+        if (dockview) {
+          dockview.dispose();
+          dockview = null;
+          dockviewPromise = null;
+          els.workspace.replaceChildren();
+        }
+        if (dockviewPromise) return dockviewPromise;
+        dockviewPromise = import('https://cdn.jsdelivr.net/npm/dockview@7.0.2/+esm').then(function (module) {
+          if (typeof module.createDockview !== 'function') throw new Error('Dockview did not load.');
+          const chatPane = els.chatPane;
+          const projectPane = els.projectPane;
+          const createComponent = function (options) {
+            const element = document.createElement('div');
+            element.className = 'dockview-panel-content';
+            return {
+              element: element,
+              init: function () {
+                element.appendChild(options.name === 'chat' ? chatPane : projectPane);
+                if (options.name === 'project') projectPane.hidden = false;
+              }
+            };
+          };
+          els.workspace.replaceChildren();
+          els.workspace.classList.add('dockview-active', dockviewThemeClass());
+          dockview = module.createDockview(els.workspace, { createComponent: createComponent });
+          dockview.onDidLayoutChange(function () { persistDockviewLayout(); });
+          const savedLayout = localStorage.getItem(DOCKVIEW_LAYOUT_KEY);
+          if (savedLayout) {
+            try { dockview.fromJSON(JSON.parse(savedLayout)); }
+            catch (error) { localStorage.removeItem(DOCKVIEW_LAYOUT_KEY); }
+          }
+          if (!dockview.panels || !dockview.panels.length) {
+            dockview.addPanel({ id: 'chat-panel', component: 'chat', title: 'Chat' });
+            dockview.addPanel({ id: 'project-panel', component: 'project', title: 'Project', position: dockviewPosition(layout) });
+          }
+          persistDockviewLayout();
+          return true;
+        }).catch(function (error) {
+          dockview = null;
+          els.workspace.classList.remove('dockview-active', 'dockview-theme-light', 'dockview-theme-dark');
+          els.workspace.replaceChildren(els.chatPane, els.projectPane);
+          throw error;
+        });
+        return dockviewPromise;
+      }
+
+      function artifactIcon(type) {
+        return type === 'colab' ? 'notebook-tabs' : type === 'pdf' ? 'file-text' : type === 'docx' ? 'file-type-2' : type === 'xlsx' ? 'file-spreadsheet' : 'file-code-2';
+      }
+
+      function payloadProjectArtifacts(payload) {
+        const items = [];
+        if (payload.notebook && payload.notebook.colab_url) {
+          items.push({ id: 'colab-' + payload.notebook.id, type: 'colab', title: payload.notebook.title || 'Colab notebook', url: payload.notebook.colab_url, subtitle: payload.notebook.repository || 'Google Colab' });
+        }
+        if (payload.manuscript && payload.manuscript.exports) {
+          const base = payload.manuscript.id || newId();
+          if (payload.manuscript.exports.pdf) items.push({ id: 'pdf-' + base, type: 'pdf', title: (payload.manuscript.title || 'Research report') + ' PDF', url: payload.manuscript.exports.pdf, subtitle: 'Revision ' + (payload.manuscript.revision || 1) });
+          if (payload.manuscript.exports.docx) items.push({ id: 'docx-' + base, type: 'docx', title: (payload.manuscript.title || 'Research report') + ' DOCX', url: payload.manuscript.exports.docx, subtitle: 'Revision ' + (payload.manuscript.revision || 1) });
+          if (payload.manuscript.exports.xlsx) items.push({ id: 'xlsx-' + base, type: 'xlsx', title: (payload.manuscript.title || 'Research report') + ' XLSX', url: payload.manuscript.exports.xlsx, subtitle: 'Structured manuscript data' });
+          if (payload.manuscript.exports.markdown) items.push({ id: 'markdown-' + base, type: 'markdown', title: (payload.manuscript.title || 'Research report') + ' Markdown', url: payload.manuscript.exports.markdown, subtitle: 'Source manuscript' });
+        }
+        return items.concat(Array.isArray(payload.reports) ? payload.reports.filter(function (item) { return item && item.url; }) : []);
+      }
+
+      function syncProjectArtifacts() {
+        const conversation = activeConversation();
+        const all = conversation ? conversation.messages.flatMap(function (message) { return message.projectArtifacts || []; }) : [];
+        projectArtifacts = all.filter(function (item, index) { return item && item.id && all.findIndex(function (candidate) { return candidate.id === item.id; }) === index; });
+        if (activeProjectArtifactId && !projectArtifacts.some(function (item) { return item.id === activeProjectArtifactId; })) activeProjectArtifactId = null;
+        renderProjectTabs();
+      }
+
+      function renderProjectTabs() {
+        els.projectTabs.innerHTML = projectArtifacts.map(function (artifact) {
+          return '<button class="project-tab' + (artifact.id === activeProjectArtifactId ? ' active' : '') + '" type="button" data-project-tab="' + escapeHtml(artifact.id) + '" title="' + escapeHtml(artifact.title) + '"><i data-lucide="' + artifactIcon(artifact.type) + '"></i><span>' + escapeHtml(artifact.title) + '</span></button>';
+        }).join('');
+        hydrateIcons();
+      }
+
+      function clearProjectView() {
+        if (projectObjectUrl) URL.revokeObjectURL(projectObjectUrl);
+        projectObjectUrl = '';
+        els.projectFrame.removeAttribute('src');
+        els.projectFrame.hidden = true;
+        els.projectText.hidden = true;
+        els.projectText.textContent = '';
+        els.projectEmpty.hidden = false;
+        els.projectOpen.hidden = true;
+        els.projectExternal.hidden = true;
+      }
+
+      function activeProjectArtifact() {
+        return projectArtifacts.find(function (item) { return item.id === activeProjectArtifactId; });
+      }
+
+      async function fetchProjectArtifact(artifact) {
+        const response = await fetch(safeExternalUrl(artifact.url), { headers: apiHeaders() });
+        if (!response.ok) throw new Error('The project artifact could not be opened.');
+        return response;
+      }
+
+      async function showProjectArtifact(artifactId) {
+        const artifact = projectArtifacts.find(function (item) { return item.id === artifactId; });
+        if (!artifact) return;
+        activeProjectArtifactId = artifact.id;
+        if (!popoutProject && els.workspace.dataset.layout === 'chat') setWorkspaceLayout('right', true);
+        clearProjectView();
+        els.projectTitle.textContent = artifact.title;
+        els.projectSubtitle.textContent = artifact.subtitle || artifact.type.toUpperCase();
+        renderProjectTabs();
+        if (artifact.type === 'colab') {
+          els.projectEmpty.querySelector('p').textContent = 'The reproducibility notebook opens in Google Colab with access controlled by the project repository.';
+          els.projectOpen.hidden = false;
+          els.projectOpen.querySelector('span').textContent = 'Open Colab';
+          els.projectExternal.hidden = popoutProject;
+          hydrateIcons();
+          return;
+        }
+        if (artifact.type === 'docx' || artifact.type === 'xlsx') {
+          els.projectEmpty.querySelector('p').textContent = artifact.type === 'xlsx'
+            ? 'Download the report as a structured workbook with provenance and section-level manuscript data.'
+            : 'Download the report as a Word document generated from this saved manuscript revision.';
+          els.projectOpen.hidden = false;
+          els.projectOpen.querySelector('span').textContent = 'Download ' + artifact.type.toUpperCase();
+          els.projectExternal.hidden = popoutProject;
+          hydrateIcons();
+          return;
+        }
+        els.projectEmpty.querySelector('p').textContent = 'Loading ' + artifact.title + '...';
+        try {
+          const response = await fetchProjectArtifact(artifact);
+          if (artifact.type === 'pdf') {
+            projectObjectUrl = URL.createObjectURL(await response.blob());
+            els.projectFrame.src = projectObjectUrl;
+            els.projectFrame.hidden = false;
+            els.projectEmpty.hidden = true;
+            els.projectExternal.hidden = popoutProject;
+          } else {
+            els.projectText.textContent = await response.text();
+            els.projectText.hidden = false;
+            els.projectEmpty.hidden = true;
+          }
+        } catch (error) {
+          els.projectEmpty.querySelector('p').textContent = error.message || String(error);
+        }
+      }
+
+      async function launchProjectArtifact() {
+        const artifact = activeProjectArtifact();
+        if (!artifact) return;
+        if (artifact.type === 'colab') {
+          window.open(safeExternalUrl(artifact.url), '_blank', 'noopener,noreferrer');
+          return;
+        }
+        if (artifact.type === 'docx' || artifact.type === 'xlsx') {
+          const response = await fetchProjectArtifact(artifact);
+          const url = URL.createObjectURL(await response.blob());
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = artifact.title.replace(/\s+(DOCX|XLSX)$/i, '') + '.' + artifact.type;
+          link.click();
+          setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+          return;
+        }
+        if (projectObjectUrl) window.open(projectObjectUrl, '_blank', 'noopener,noreferrer');
+        else window.open(safeExternalUrl(artifact.url), '_blank', 'noopener,noreferrer');
+      }
+
+      function popOutProjectPanel() {
+        const query = new URLSearchParams({ popout: 'project', conversation: activeId });
+        if (activeProjectArtifactId) query.set('artifact', activeProjectArtifactId);
+        const popup = window.open(window.location.pathname + '?' + query.toString(), '_blank');
+        if (!popup) {
+          showToast('Allow pop-ups to open the project panel in a new tab.');
+          return;
+        }
+        try { popup.opener = null; } catch (_) { /* Cross-browser hardening is best effort. */ }
+        setWorkspaceLayout('chat', true);
+      }
+
+      function citationDomId(messageId, citationId) {
+        return 'reference-' + String(messageId || 'message').replace(/[^a-zA-Z0-9_-]/g, '-') + '-' + String(citationId || 'source').replace(/[^a-zA-Z0-9_-]/g, '-');
+      }
+
+      function renderMarkdown(value, messageId, citations) {
+        let safe = escapeHtml(value || '');
+        const codeBlocks = [];
+        safe = safe.replace(/```(?:\w+)?\n([\s\S]*?)```/g, function (_, code) {
+          const token = '@@CODE' + codeBlocks.length + '@@';
+          codeBlocks.push('<pre><code>' + code.trim() + '</code></pre>');
+          return token;
+        });
+        const citationIds = new Map((citations || []).map(function (item) { return String(item.id || ''); }).filter(Boolean).map(function (id) { return [id.toUpperCase(), id]; }));
+        safe = safe.replace(/\[([a-z][a-z0-9_-]*)\]/gi, function (marker, citationId) {
+          const canonicalId = citationIds.get(citationId.toUpperCase());
+          if (!canonicalId) return marker;
+          return '<sup class="knowledge-citation"><a href="#' + citationDomId(messageId, canonicalId) + '" aria-label="Reference ' + escapeHtml(canonicalId) + '">[' + escapeHtml(canonicalId) + ']</a></sup>';
+        });
+        safe = safe.replace(/https?:\/\/(?:www\.)?clinicaltrials\.gov\/study\/(NCT\d{8})\/?|https:\/\/chat\.terpedia\.com\/clinicaltrials\?nct=(NCT\d{8})/gi, function (_, externalId, internalId) {
+          const nctId = String(externalId || internalId).toUpperCase();
+          const href = '/clinicaltrials?nct=' + encodeURIComponent(nctId);
+          return '<a href="' + href + '">https://chat.terpedia.com' + href + '</a>';
+        });
+        safe = safe.replace(/^### (.+)$/gm, '<strong>$1</strong>');
+        safe = safe.replace(/^##? (.+)$/gm, '<strong>$1</strong>');
+        safe = safe.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        safe = safe.replace(/`([^`]+)`/g, '<code>$1</code>');
+        safe = safe.replace(/^[-*] (.+)$/gm, '<li>$1</li>');
+        safe = safe.replace(/(?:<li>[\s\S]*?<\/li>\n?)+/g, '<ul>$&</ul>');
+        safe = safe.split(/\n{2,}/).map(function (block) {
+          if (/^<(pre|ul|strong)/.test(block) || /^@@CODE/.test(block)) return block;
+          return '<p>' + block.replace(/\n/g, '<br>') + '</p>';
+        }).join('');
+        codeBlocks.forEach(function (block, index) { safe = safe.replace('@@CODE' + index + '@@', block); });
+        return safe;
+      }
+
+      function createConversation() {
+        const now = new Date().toISOString();
+        return { id: newId(), title: 'New chat', createdAt: now, updatedAt: now, useRag: true, useRdkit: false, messages: [] };
+      }
+      function readConversations() {
+        try {
+          const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+          return Array.isArray(parsed) ? parsed.filter(function (item) { return item && item.id && Array.isArray(item.messages); }).slice(0, 50).map(function (item) {
+            delete item.participants;
+            delete item.agent;
+            return item;
+          }) : [];
+        } catch (error) { return []; }
+      }
+      function activeConversation() { return conversations.find(function (conversation) { return conversation.id === activeId; }); }
+      function persist() {
+        const safe = conversations.map(function (conversation) {
+          return Object.assign({}, conversation, { messages: conversation.messages.slice(-100).map(function (message) {
+            return Object.assign({}, message, { attachments: (message.attachments || []).map(function (item) {
+              return { id: item.id, name: item.name, kind: item.kind, type: item.type, size: item.size };
+            }) });
+          }) });
+        });
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(safe)); } catch (error) { showToast('Conversation history is full. Older attachment previews were not saved.'); }
+        localStorage.setItem(ACTIVE_KEY, activeId);
+        scheduleGithubSync(safe);
+      }
+
+      function authToken() { return localStorage.getItem(AUTH_KEY) || ''; }
+      function apiHeaders() { return authToken() ? { Authorization: 'Bearer ' + authToken() } : {}; }
+      function chatIdentityHeaders() {
+        return authToken() ? apiHeaders() : { 'X-Terpedia-Anonymous-Id': sessionKey };
+      }
+      function formatCountdown(seconds) {
+        const remaining = Math.max(0, Math.floor(seconds));
+        const hours = Math.floor(remaining / 3600);
+        const minutes = Math.floor((remaining % 3600) / 60);
+        const secs = remaining % 60;
+        return hours + ':' + String(minutes).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+      }
+      function renderGuestCountdown() {
+        if (authToken()) {
+          els.guestSession.hidden = false;
+          els.join.hidden = true;
+          const tier = memberAllowance && memberAllowance.tier ? memberAllowance.tier : 'registered';
+          els.guestSession.querySelector('.guest-session-label').textContent = tier === 'registered' ? 'Member' : tier.charAt(0).toUpperCase() + tier.slice(1);
+          els.guestCountdown.textContent = memberAllowance && Number.isFinite(memberAllowance.ordinary_requests_remaining)
+            ? memberAllowance.ordinary_requests_remaining + ' left'
+            : 'Included';
+          els.guestCountdown.classList.remove('ended');
+          els.guestSession.title = memberAllowance
+            ? 'Approximate ordinary answers remaining in this ' + memberAllowance.window + ' allowance'
+            : 'Member allowance';
+          return;
+        }
+        els.guestSession.hidden = false;
+        els.join.hidden = false;
+        els.guestSession.querySelector('.guest-session-label').textContent = 'Guest';
+        const hasStarted = Number.isFinite(guestSessionEndsAt) && guestSessionEndsAt > 0;
+        const seconds = hasStarted ? Math.max(0, Math.ceil((guestSessionEndsAt - Date.now()) / 1000)) : 3600;
+        els.guestCountdown.textContent = seconds === 0 && hasStarted ? 'Ended' : formatCountdown(seconds);
+        els.guestCountdown.classList.toggle('ended', seconds === 0 && hasStarted);
+        els.guestCountdown.dateTime = 'PT' + seconds + 'S';
+        const allowanceText = memberAllowance && Number.isFinite(memberAllowance.ordinary_requests_remaining)
+          ? ' · about ' + memberAllowance.ordinary_requests_remaining + ' ordinary answers left today'
+          : '';
+        els.guestSession.title = (hasStarted ? 'Guest session time remaining' : 'Guest time starts with your first message') + allowanceText;
+      }
+      function startGuestCountdown() {
+        clearInterval(guestCountdownTimer);
+        renderGuestCountdown();
+        guestCountdownTimer = setInterval(renderGuestCountdown, 1000);
+      }
+      function captureGuestSession(response, payload) {
+        const payloadAllowance = payload && payload.allowance;
+        const headerRemainingValue = response.headers.get('X-Terpedia-Ordinary-Requests-Remaining');
+        const headerRemaining = headerRemainingValue == null ? NaN : Number(headerRemainingValue);
+        const headerTier = response.headers.get('X-RateLimit-Tier');
+        if (payloadAllowance) memberAllowance = payloadAllowance;
+        else if (Number.isFinite(headerRemaining)) {
+          memberAllowance = { tier: headerTier || (authToken() ? 'registered' : 'anonymous'), window: authToken() ? 'monthly' : 'daily', ordinary_requests_remaining: headerRemaining };
+        }
+        if (authToken()) {
+          renderGuestCountdown();
+          return;
+        }
+        const headerValue = response.headers.get('X-RateLimit-Session-Ends');
+        const payloadValue = payload && payload.session && payload.session.endsAt;
+        const parsed = headerValue ? Date.parse(headerValue) : Number(payloadValue || 0);
+        if (!Number.isFinite(parsed) || parsed <= 0) return;
+        guestSessionEndsAt = parsed;
+        localStorage.setItem(GUEST_SESSION_END_KEY, String(parsed));
+        renderGuestCountdown();
+      }
+      function acceptGithubCallback() {
+        const fragment = new URLSearchParams(location.hash.replace(/^#/, ''));
+        const token = fragment.get('github_token');
+        const callback = params.get('github');
+        if (token) {
+          localStorage.setItem(AUTH_KEY, token);
+          localStorage.removeItem(GUEST_SESSION_END_KEY);
+          guestSessionEndsAt = 0;
+          memberAllowance = null;
+          history.replaceState(null, '', location.pathname + location.search.replace(/([?&])github=[^&]*/g, '$1').replace(/[?&]$/, ''));
+          showToast('Signed in with GitHub.');
+          renderGuestCountdown();
+        } else if (callback === 'error') {
+          showToast('GitHub sign-in failed' + (params.get('reason') ? ': ' + params.get('reason') : '.'));
+        }
+        updateAccountUi();
+      }
+      function sessionIdentity() {
+        const token = authToken();
+        if (!token) return null;
+        try {
+          const value = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+          return JSON.parse(atob(value + '='.repeat((4 - value.length % 4) % 4)));
+        } catch (error) { return null; }
+      }
+      function updateAccountUi() {
+        const identity = sessionIdentity();
+        const signedIn = Boolean(authToken());
+        const label = identity && (identity.githubLogin || identity.name || identity.email) ? (identity.githubLogin || identity.name || identity.email) : 'GitHub account';
+        els.accountStatus.textContent = signedIn ? 'Signed in as ' + label : 'Guest';
+        els.accountAction.textContent = signedIn ? 'Account' : 'Sign in';
+        els.githubSignin.hidden = signedIn;
+        els.githubSignin.disabled = !githubAuthEnabled;
+        els.githubSignin.title = githubAuthEnabled ? 'Continue with GitHub' : 'GitHub sign-in is being configured';
+        els.signedInAccount.hidden = !signedIn;
+        els.signedInStatus.textContent = signedIn ? 'Signed in as ' + label : '';
+      }
+      function openAuthDialog() { updateAccountUi(); els.authDialog.showModal(); }
+      function signOut() {
+        localStorage.removeItem(AUTH_KEY);
+        memberAllowance = null;
+        els.authDialog.close();
+        els.githubStorage.hidden = true;
+        updateAccountUi();
+        renderGuestCountdown();
+        showToast('Signed out.');
+      }
+      async function configureGithubStorage() {
+        const apiBase = normalizeBase(els.apiBase.value);
+        try {
+          const config = await fetch(apiBase + '/api/github/config').then(function (response) { return response.json(); });
+          githubAuthEnabled = Boolean(config.enabled && config.authentication);
+          updateAccountUi();
+          els.githubStorage.hidden = !config.enabled || !authToken();
+          if (!config.enabled) return;
+          if (!authToken()) return;
+          const response = await fetch(apiBase + '/api/github/status', { headers: apiHeaders() });
+          const status = await response.json();
+          if (response.ok && status.connected) {
+            els.githubStatus.textContent = status.login + ' / ' + status.repository;
+            els.githubConnect.textContent = 'Sync now';
+            await loadGithubHistory();
+          }
+        } catch (error) { els.githubStorage.hidden = true; }
+      }
+
+      async function configureGoogleWorkspace() {
+        const apiBase = normalizeBase(els.apiBase.value);
+        try {
+          const configResponse = await fetch(apiBase + '/api/google/drive/config');
+          const config = await configResponse.json();
+          els.googleStorage.hidden = !config.enabled;
+          els.googleDrive.hidden = !config.enabled;
+          if (!config.enabled) return;
+          const callback = params.get('google');
+          if (callback) {
+            const reason = params.get('reason');
+            showToast(callback === 'connected' ? 'Google Workspace connected.' : 'Google connection failed' + (reason ? ': ' + reason : '.'));
+            const cleanUrl = new URL(location.href);
+            cleanUrl.searchParams.delete('google');
+            cleanUrl.searchParams.delete('reason');
+            history.replaceState(null, '', cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
+          }
+          if (!authToken()) {
+            els.googleStatus.textContent = 'Sign in to connect Google Drive';
+            els.googleConnect.textContent = 'Sign in first';
+            return;
+          }
+          const response = await fetch(apiBase + '/api/auth/google/status', { headers: apiHeaders() });
+          const status = await response.json();
+          googleWorkspaceConnected = response.ok && status.connected;
+          els.googleStatus.textContent = googleWorkspaceConnected ? 'Docs, Sheets, and Slides connected' : 'Google Drive not connected';
+          els.googleConnect.textContent = googleWorkspaceConnected ? 'Disconnect' : 'Connect Google';
+        } catch (error) {
+          els.googleStorage.hidden = true;
+          els.googleDrive.hidden = true;
+        }
+      }
+
+      async function connectGoogleWorkspace() {
+        if (!authToken()) throw new Error('Sign in before connecting Google Workspace.');
+        if (googleWorkspaceConnected) {
+          const response = await fetch(normalizeBase(els.apiBase.value) + '/api/auth/google/disconnect', { method: 'DELETE', headers: apiHeaders() });
+          if (!response.ok) throw new Error('Google Workspace could not be disconnected.');
+          googleWorkspaceConnected = false;
+          await configureGoogleWorkspace();
+          showToast('Google Workspace disconnected and tokens revoked.');
+          return;
+        }
+        const response = await fetch(normalizeBase(els.apiBase.value) + '/api/auth/google/connect-url', { headers: apiHeaders() });
+        const result = await response.json();
+        if (!response.ok || !result.url) throw new Error(result.error || 'Google authorization could not be started.');
+        location.href = result.url;
+      }
+
+      async function loadGoogleFiles() {
+        if (!googleWorkspaceConnected) {
+          els.settingsDialog.showModal();
+          throw new Error('Connect Google Workspace in Settings first.');
+        }
+        els.googleFileList.innerHTML = '<div class="picker-empty">Loading Google Drive...</div>';
+        els.googlePickerDialog.showModal();
+        const query = els.googleFileQuery.value.trim();
+        const response = await fetch(normalizeBase(els.apiBase.value) + '/api/google/drive/files?query=' + encodeURIComponent(query), { headers: apiHeaders() });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Google Drive files could not be loaded.');
+        const icons = {
+          'application/vnd.google-apps.document': 'file-text',
+          'application/vnd.google-apps.spreadsheet': 'table-2',
+          'application/vnd.google-apps.presentation': 'presentation'
+        };
+        els.googleFileList.innerHTML = (result.files || []).map(function (file) {
+          const modified = file.modifiedTime ? new Date(file.modifiedTime).toLocaleDateString() : 'Google Workspace';
+          return '<button class="drive-file" type="button" data-google-file="' + escapeHtml(file.id) + '"><span class="file-icon"><i data-lucide="' + (icons[file.mimeType] || 'file') + '"></i></span><span><strong>' + escapeHtml(file.name) + '</strong><small>Modified ' + escapeHtml(modified) + '</small></span><i data-lucide="plus"></i></button>';
+        }).join('') || '<div class="picker-empty">No available Docs, Sheets, or Slides were found. With least-privilege access, Terpedia sees only files you have opened with or created through this integration.</div>';
+        hydrateIcons();
+      }
+
+      async function attachGoogleFile(fileId) {
+        if (attachments.filter(function (item) { return item.kind === 'document'; }).length >= MAX_DOCUMENTS) throw new Error('You can attach up to three documents.');
+        const response = await fetch(normalizeBase(els.apiBase.value) + '/api/google/drive/read', {
+          method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, apiHeaders()), body: JSON.stringify({ fileId: fileId })
+        });
+        const file = await response.json();
+        if (!response.ok) throw new Error(file.error || 'The Google Workspace file could not be attached.');
+        attachments.push({ id: newId(), googleFileId: file.id, name: file.name, type: file.mimeType, kind: 'document', size: file.content.length, content: file.content, sourceUrl: file.webViewLink, source: 'google_drive' });
+        renderAttachments();
+        els.googlePickerDialog.close();
+        showToast(file.name + ' attached from Google Drive.');
+      }
+
+      function showWorkspacePreview(action) {
+        if (!action?.confirmationToken || !action.preview) return;
+        pendingWorkspaceAction = action;
+        const preview = action.preview;
+        const isTerproduct = action.kind === 'terproduct';
+        const counts = isTerproduct ? preview.ingredientCount + ' ingredients · ' + preview.compoundLinkCount + ' compound links' : preview.fileType === 'sheets' ? preview.rows + ' rows' : preview.fileType === 'slides' ? preview.slides + ' slides' : 'Document content';
+        const title = isTerproduct ? (preview.product?.brand || '') + ' ' + (preview.product?.name || '') : (preview.title || 'Existing file');
+        els.workspacePreview.innerHTML = '<dl class="preview-summary"><dt>Action</dt><dd>' + escapeHtml(isTerproduct ? 'Create Terproduct record' : preview.operation + ' ' + preview.fileType) + '</dd><dt>Title</dt><dd>' + escapeHtml(title) + '</dd><dt>Contents</dt><dd>' + escapeHtml(counts) + '</dd><dt>Agent</dt><dd>' + escapeHtml(preview.provenance?.agent || 'Terpedia') + '</dd><dt>Expires</dt><dd>' + escapeHtml(new Date(action.expiresAt).toLocaleTimeString()) + '</dd></dl>' +
+          (preview.contentPreview ? '<pre class="preview-content">' + escapeHtml(preview.contentPreview) + '</pre>' : '') +
+          '<p class="preview-notice">Nothing is written until you confirm. The record will preserve the Terpedia agent, timestamp, trace, and evidence provenance.</p>';
+        els.workspaceConfirmDialog.showModal();
+      }
+
+      async function confirmWorkspaceWrite() {
+        if (!pendingWorkspaceAction) return;
+        els.confirmWorkspaceWrite.disabled = true;
+        try {
+          if (pendingWorkspaceAction.kind === 'terproduct') {
+            const response = await fetch(normalizeBase(els.apiBase.value) + '/api/terproduct/actions/confirm', {
+              method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, apiHeaders()), body: JSON.stringify({ confirmationToken: pendingWorkspaceAction.confirmationToken })
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || 'The Terproduct record could not be created.');
+            addMessage('assistant', 'Terproduct record created with linked ingredient evidence.', 'Terproduct', [], false, 'product_intelligence', result.url ? [{ id: 'Terproduct', title: result.slug || 'Open Terproduct record', url: result.url }] : []);
+            pendingWorkspaceAction = null;
+            pendingTerproductAction = null;
+            els.workspaceConfirmDialog.close();
+            showToast('Terproduct record created.');
+            return;
+          }
+          const response = await fetch(normalizeBase(els.apiBase.value) + '/api/google/drive/actions/confirm', {
+            method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, apiHeaders()), body: JSON.stringify({ confirmationToken: pendingWorkspaceAction.confirmationToken })
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || 'The Google Workspace write failed.');
+          const safeUrl = safeExternalUrl(result.url);
+          addMessage('assistant', 'Your Google Workspace artifact is ready.', 'Google Workspace', [], false, 'publication_editor', safeUrl ? [{ id: 'Drive', title: result.title || 'Open artifact', url: safeUrl }] : []);
+          pendingWorkspaceAction = null;
+          els.workspaceConfirmDialog.close();
+          showToast('Google Workspace artifact created.');
+        } finally {
+          els.confirmWorkspaceWrite.disabled = false;
+        }
+      }
+      async function prepareTerproductPreview(proposal, payload, attachmentsForEvidence) {
+        if (!proposal) return;
+        const response = await fetch(normalizeBase(els.apiBase.value) + '/api/terproduct/actions/preview', {
+          method: 'POST',
+          headers: Object.assign({ 'Content-Type': 'application/json' }, apiHeaders()),
+          body: JSON.stringify({
+            proposal: proposal,
+            provenance: {
+              sourceType: 'label_image',
+              sourceName: (attachmentsForEvidence || []).map(function (item) { return item.name; }).filter(Boolean).join(', '),
+              capturedAt: new Date().toISOString(),
+              agent: payload.agent_display_name || payload.agent || 'Terpedia Multi-Agent',
+              traceId: payload.request_id || null,
+              evidence: { citations: responseCitations(payload) }
+            }
+          })
+        });
+        const result = await response.json();
+        if (response.status === 401) throw new Error('Sign in to create the Terproduct record.');
+        if (!response.ok) throw new Error(result.error || 'Terproduct record creation is unavailable.');
+        pendingTerproductAction = Object.assign({ kind: 'terproduct' }, result);
+        showWorkspacePreview(pendingTerproductAction);
+      }
+      function scheduleGithubSync(value) {
+        if (!authToken() || els.githubStorage.hidden) return;
+        clearTimeout(syncTimer);
+        syncTimer = setTimeout(function () { syncGithubHistory(value); }, 900);
+      }
+      async function syncGithubHistory(value) {
+        const apiBase = normalizeBase(els.apiBase.value);
+        const response = await fetch(apiBase + '/api/github/file', {
+          method: 'PUT', headers: Object.assign({ 'Content-Type': 'application/json' }, apiHeaders()),
+          body: JSON.stringify({ path: 'conversations/history.json', content: JSON.stringify({ version: 1, updatedAt: new Date().toISOString(), conversations: value }, null, 2), message: 'Sync Terpedia conversation history' })
+        });
+        if (!response.ok) throw new Error('GitHub sync failed');
+        els.githubStatus.textContent = 'Private history synced';
+      }
+      async function loadGithubHistory() {
+        const response = await fetch(normalizeBase(els.apiBase.value) + '/api/github/file?path=conversations%2Fhistory.json', { headers: apiHeaders() });
+        if (response.status === 404) return;
+        if (!response.ok) throw new Error('Could not load GitHub history');
+        const file = await response.json();
+        const remote = JSON.parse(file.content);
+        if (Array.isArray(remote.conversations) && remote.conversations.length && !localStorage.getItem(STORAGE_KEY)) {
+          conversations = remote.conversations.slice(0, 50);
+          activeId = conversations[0].id;
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations));
+          renderAll();
+        }
+      }
+
+      function renderAll() { renderConversations(); renderMessages(); syncProjectArtifacts(); refreshHeader(); }
+      function renderConversations() {
+        const query = els.conversationSearch.value.trim().toLowerCase();
+        const visible = conversations.slice().sort(function (a, b) { return b.updatedAt.localeCompare(a.updatedAt); }).filter(function (conversation) {
+          return !query || conversation.title.toLowerCase().includes(query);
+        });
+        els.conversationList.innerHTML = visible.map(function (conversation) {
+          return '<div class="conversation-row ' + (conversation.id === activeId ? 'active' : '') + '" data-conversation="' + conversation.id + '">' +
+            '<button class="conversation-select" type="button" title="' + escapeHtml(conversation.title) + '">' + escapeHtml(conversation.title) + '</button>' +
+            '<button class="conversation-delete" type="button" aria-label="Delete ' + escapeHtml(conversation.title) + '" title="Delete conversation"><i data-lucide="trash-2"></i></button></div>';
+        }).join('') || '<div class="history-label">No matching chats</div>';
+        hydrateIcons();
+      }
+
+      function renderMessages() {
+        const conversation = activeConversation();
+        if (!conversation || !conversation.messages.length) {
+          els.messages.innerHTML = '<div class="empty-state"><div class="empty-inner"><img src="assets/terpedia-mark.webp" alt=""><h1>How can Terpedia help?</h1>' +
+            '<p>Ask a specialist, review a PDF, or add up to three product photos for identification and comparison.</p><div class="suggestions">' +
+            suggestion('Scan product photos', 'Identify labels, formats, and visible claims across several images.') +
+            suggestion('Review a COA', 'Attach a PDF and check potency, contaminants, and specifications.') +
+            suggestion('Research a terpene', 'Summarize chemistry, evidence, stability, and sensory character.') +
+            suggestion('Analyze with RDKit', 'Compute descriptors, identifiers, alerts, conformers, and a molecular depiction for Name: limonene.') + '</div></div></div>';
+          hydrateIcons();
+          return;
+        }
+        els.messages.innerHTML = conversation.messages.map(renderMessage).join('');
+        hydrateIcons();
+        requestAnimationFrame(scrollToBottom);
+      }
+      function suggestion(title, text) {
+        return '<button class="suggestion" type="button" data-suggestion="' + escapeHtml(title + ': ' + text) + '"><strong>' + escapeHtml(title) + '</strong><span>' + escapeHtml(text) + '</span></button>';
+      }
+      function renderMessage(message) {
+        const attachmentsHtml = renderMessageAttachments(message.attachments || []);
+        const visual = agentVisual(message.agentId);
+        const avatar = message.role === 'user' ? '' : '<div class="avatar" data-agent="' + escapeHtml(message.agentId || 'terpedia_agent') + '" style="--agent-color:' + visual.color + '" title="' + escapeHtml(agentNames[message.agentId] || message.meta || 'Terpedia') + '"><i data-lucide="' + visual.icon + '"></i></div>';
+        const meta = message.meta ? '<div class="message-meta">' + escapeHtml(message.meta) + '</div>' : '';
+        const sources = renderMessageSources(message.citations || [], message.id);
+        return '<article class="message-row ' + escapeHtml(message.role) + (message.error ? ' error-message' : '') + '"><div class="message-inner">' + avatar +
+          '<div class="message-content">' + attachmentsHtml + renderMarkdown(message.text, message.id, message.citations || []) + renderProjectActions(message.projectArtifacts || [], message.id) + sources + meta + '</div></div></article>';
+      }
+      function renderProjectActions(items, messageId) {
+        if (!items.length) return '';
+        return '<div class="project-actions">' + items.map(function (artifact) {
+          const command = artifact.type === 'docx' || artifact.type === 'xlsx' ? 'Download' : 'Open';
+          return '<button class="project-action" type="button" data-project-message="' + escapeHtml(messageId) + '" data-project-artifact="' + escapeHtml(artifact.id) + '"><i data-lucide="' + artifactIcon(artifact.type) + '"></i><span>' + command + ' ' + escapeHtml(artifact.type === 'colab' ? 'Colab' : artifact.type.toUpperCase()) + '</span></button>';
+        }).join('') + '</div>';
+      }
+      function renderMessageSources(items, messageId) {
+        const valid = items.map(function (item) { return { id: item.id, title: item.title, url: readerUrl(item.url) }; }).filter(function (item) { return item.url; });
+        if (!valid.length) return '';
+        return '<section class="message-references" aria-label="References"><div class="references-title">References</div><ol class="references-list">' + valid.map(function (item) {
+          const citationId = item.id || 'Source';
+          return '<li class="reference-entry" id="' + citationDomId(messageId, citationId) + '"><a href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener noreferrer"><span class="reference-id">[' + escapeHtml(citationId) + ']</span>' + escapeHtml(item.title || 'Source') + '</a></li>';
+        }).join('') + '</ol></section>';
+      }
+      function renderMessageAttachments(items) {
+        if (!items.length) return '';
+        return '<div class="message-attachments">' + items.map(function (item) {
+          if (item.kind === 'image' && item.previewUrl && item.chemistry) return '<figure class="chemistry-figure"><img class="message-image" src="' + escapeHtml(item.previewUrl) + '" alt="' + escapeHtml(item.alt || item.name) + '"><figcaption>' + escapeHtml(item.name) + '</figcaption></figure>';
+          if (item.kind === 'image' && item.previewUrl) return '<img class="message-image" src="' + item.previewUrl + '" alt="' + escapeHtml(item.name) + '">';
+          return '<div class="file-chip"><i data-lucide="' + (item.kind === 'image' ? 'image' : 'file-text') + '"></i><span>' + escapeHtml(item.name) + '</span></div>';
+        }).join('') + '</div>';
+      }
+
+      function refreshHeader() {
+        const conversation = activeConversation();
+        els.activeTitle.textContent = conversation ? conversation.title : 'New chat';
+        els.activeSubtitle.textContent = conversation && conversation.useRdkit ? 'RDKit chemistry · Terpedia agents' : 'Context-routed Terpedia agents';
+      }
+      function syncControlsFromConversation() {
+        const conversation = activeConversation();
+        if (!conversation) return;
+        els.useRag.checked = conversation.useRag !== false;
+        els.useRdkit.checked = conversation.useRdkit === true;
+      }
+      function saveConversationControls() {
+        const conversation = activeConversation();
+        if (!conversation) return;
+        conversation.useRag = els.useRag.checked;
+        conversation.useRdkit = els.useRdkit.checked;
+        conversation.updatedAt = new Date().toISOString();
+        persist();
+        refreshHeader();
+      }
+      function addMessage(role, text, meta, messageAttachments, isError, agentId, citations, messageProjectArtifacts) {
+        const conversation = activeConversation();
+        const now = new Date().toISOString();
+        conversation.messages.push({ id: newId(), role: role, text: text, meta: meta || '', agentId: agentId || '', attachments: messageAttachments || [], citations: citations || [], projectArtifacts: messageProjectArtifacts || [], error: Boolean(isError), createdAt: now });
+        if (role === 'user' && conversation.title === 'New chat') conversation.title = (plainText(text) || 'Attachment review').slice(0, 44);
+        conversation.updatedAt = now;
+        persist();
+        renderAll();
+      }
+
+      function renderAttachments() {
+        els.attachmentTray.innerHTML = attachments.map(function (item) {
+          const visual = item.kind === 'image' ? '<img src="' + item.previewUrl + '" alt="">' : '<div class="file-icon"><i data-lucide="file-text"></i></div>';
+          const workflowLabel = item.workflow === 'coa' ? 'COA' : item.workflow === 'product-photo' ? 'Product' : 'PDF';
+          return '<div class="attachment-card">' + visual + '<div class="details"><strong>' + escapeHtml(item.name) + '</strong><small>' + (item.processing ? 'Reading...' : workflowLabel + ' · ' + formatBytes(item.size)) + '</small></div>' +
+            '<button class="remove-attachment" type="button" data-remove-attachment="' + item.id + '" aria-label="Remove ' + escapeHtml(item.name) + '"><i data-lucide="x"></i></button></div>';
+        }).join('');
+        hydrateIcons();
+      }
+
+      async function addFiles(fileList, workflow) {
+        const files = Array.from(fileList || []);
+        for (const file of files) {
+          try {
+            if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) await addPdf(file, workflow || 'document');
+            else if (file.type.startsWith('image/')) await addImage(file, workflow || 'product-photo');
+            else showToast(file.name + ' is not a supported PDF or image.');
+          } catch (error) { showToast(error.message || String(error)); }
+        }
+        renderAttachments();
+      }
+
+      async function addPdf(file, workflow) {
+        if (attachments.filter(function (item) { return item.kind === 'document'; }).length >= MAX_DOCUMENTS) throw new Error('You can attach up to three PDFs.');
+        if (file.size > MAX_PDF_BYTES) throw new Error(file.name + ' is larger than 15 MB.');
+        const item = { id: newId(), name: file.name, type: 'application/pdf', kind: 'document', workflow: workflow, size: file.size, processing: true, content: '' };
+        attachments.push(item);
+        renderAttachments();
+        try {
+          const pdfjs = await getPdfModule();
+          const documentTask = pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) });
+          const pdf = await documentTask.promise;
+          const pages = [];
+          const pageLimit = Math.min(pdf.numPages, 30);
+          for (let index = 1; index <= pageLimit; index += 1) {
+            const page = await pdf.getPage(index);
+            const textContent = await page.getTextContent();
+            pages.push('[Page ' + index + ']\n' + textContent.items.map(function (part) { return part.str; }).join(' '));
+            if (pages.join('\n\n').length >= MAX_DOCUMENT_CHARS) break;
+          }
+          item.content = pages.join('\n\n').slice(0, MAX_DOCUMENT_CHARS);
+          item.processing = false;
+          if (!item.content.trim()) throw new Error(file.name + ' has no extractable text. Scanned PDFs need OCR before upload.');
+        } catch (error) {
+          attachments = attachments.filter(function (attachment) { return attachment.id !== item.id; });
+          renderAttachments();
+          throw error;
+        }
+      }
+
+      function getPdfModule() {
+        if (!pdfModulePromise) {
+          pdfModulePromise = import('https://cdn.jsdelivr.net/npm/pdfjs-dist@6.1.200/build/pdf.min.mjs').then(function (module) {
+            module.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@6.1.200/build/pdf.worker.min.mjs';
+            return module;
+          });
+        }
+        return pdfModulePromise;
+      }
+
+      async function addImage(file, workflow) {
+        if (attachments.filter(function (item) { return item.kind === 'image'; }).length >= MAX_IMAGES) throw new Error('You can attach up to three images for one scan.');
+        const processed = await compressImage(file);
+        attachments.push({ id: newId(), name: file.name, type: processed.type, kind: 'image', workflow: workflow, size: processed.size, originalSize: file.size, dataUrl: processed.dataUrl, previewUrl: processed.dataUrl, width: processed.width, height: processed.height });
+      }
+
+      async function compressImage(file) {
+        const bitmap = await createImageBitmap(file);
+        const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+        const width = Math.max(1, Math.round(bitmap.width * scale));
+        const height = Math.max(1, Math.round(bitmap.height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext('2d').drawImage(bitmap, 0, 0, width, height);
+        bitmap.close();
+        let quality = 0.86;
+        let blob = await canvasToBlob(canvas, quality);
+        while (blob.size > MAX_IMAGE_BYTES && quality > 0.42) { quality -= 0.1; blob = await canvasToBlob(canvas, quality); }
+        if (blob.size > MAX_IMAGE_BYTES) throw new Error(file.name + ' could not be compressed below 1 MB.');
+        return { type: 'image/jpeg', size: blob.size, width: width, height: height, dataUrl: await blobToDataUrl(blob) };
+      }
+      function canvasToBlob(canvas, quality) {
+        return new Promise(function (resolve, reject) {
+          canvas.toBlob(function (blob) { if (blob) resolve(blob); else reject(new Error('The image could not be processed.')); }, 'image/jpeg', quality);
+        });
+      }
+      function blobToDataUrl(blob) { return new Promise(function (resolve, reject) { const reader = new FileReader(); reader.onload = function () { resolve(reader.result); }; reader.onerror = reject; reader.readAsDataURL(blob); }); }
+
+      function requestBody(message, outgoingAttachments) {
+        const workflows = outgoingAttachments.map(function (item) { return item.workflow; }).filter(Boolean);
+        const attachmentIntent = workflows.includes('coa') ? 'coa' : workflows.includes('product-photo') ? 'product-photo' : workflows.includes('document') ? 'document' : '';
+        const body = {
+          message: message,
+          user_id: sessionKey + ':' + activeId,
+          plan: window.TERPEDIA_CHAT_CONFIG.plan || 'all_access',
+          username: 'terpedia_guest',
+          useRag: els.useRag.checked,
+          current_datetime: new Date().toISOString(),
+          documents: outgoingAttachments.filter(function (item) { return item.kind === 'document'; }).map(function (item) {
+            return { id: item.id, name: item.name, mimeType: item.type, size: item.size, content: item.content, source: item.source, sourceUrl: item.sourceUrl, googleFileId: item.googleFileId };
+          }),
+          images: outgoingAttachments.filter(function (item) { return item.kind === 'image'; }).map(function (item) {
+            return { id: item.id, name: item.name, mimeType: item.type, size: item.size, originalSize: item.originalSize, dataUrl: item.dataUrl, width: item.width, height: item.height };
+          }),
+          context: { frontend: 'chat.terpedia.com', hosting: 'github_pages', attachmentCount: outgoingAttachments.length }
+        };
+        if (els.useRdkit.checked) body.skill = 'computational-chemistry';
+        if (attachmentIntent) body.attachment_intent = attachmentIntent;
+        if (els.model.value) body.model = els.model.value;
+        return body;
+      }
+
+      async function sendMessage(message, outgoingAttachments) {
+        const apiBase = normalizeBase(els.apiBase.value);
+        if (!apiBase) throw new Error('Set a backend API URL in Settings.');
+        localStorage.setItem(API_KEY, apiBase);
+        const response = await fetch(apiBase + '/api/chat', {
+          method: 'POST',
+          headers: Object.assign({ 'Content-Type': 'application/json', 'X-Client': 'chat.terpedia.com' }, chatIdentityHeaders()),
+          body: JSON.stringify(requestBody(message, outgoingAttachments))
+        });
+        const text = await response.text();
+        let payload;
+        try { payload = text ? JSON.parse(text) : {}; } catch (error) { throw new Error('The backend returned an unreadable response.'); }
+        captureGuestSession(response, payload);
+        if (!response.ok || payload.success === false) throw new Error((payload.message || payload.error || response.statusText || 'Request failed') + (payload.retryAfter ? ' Try again in ' + formatRetryAfter(payload.retryAfter) + '.' : ''));
+        return payload;
+      }
+
+      function formatRetryAfter(value) {
+        const seconds = Math.max(0, Math.ceil(Number(value) || 0));
+        if (seconds < 60) return seconds + 's';
+        const totalMinutes = Math.ceil(seconds / 60);
+        if (totalMinutes < 60) return totalMinutes + 'm';
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        return hours + 'h ' + String(minutes).padStart(2, '0') + 'm';
+      }
+
+      function summarizePayload(payload) {
+        const pieces = [];
+        if (payload.agent_display_name || payload.agent) pieces.push(payload.agent_display_name || payload.agent);
+        if (payload.rag && Array.isArray(payload.rag.entries)) pieces.push('RAG ' + payload.rag.entries.length);
+        if (payload.chemistry) pieces.push('RDKit ' + (payload.chemistry.operation || payload.chemistry.status || 'computed'));
+        if (payload.usage && payload.usage.total_tokens) pieces.push(payload.usage.total_tokens + ' tokens');
+        return pieces.join(' · ') || 'Terpedia';
+      }
+      function chemistryAttachments(payload) {
+        const artifacts = payload.chemistry && Array.isArray(payload.chemistry.artifacts) ? payload.chemistry.artifacts : [];
+        return artifacts.filter(function (artifact) {
+          return artifact.mime_type === 'image/svg+xml' && typeof artifact.content === 'string' && artifact.content.includes('<svg');
+        }).map(function (artifact, index) {
+          return {
+            id: 'chemistry-' + Date.now() + '-' + index,
+            name: artifact.title || 'RDKit molecular illustration',
+            alt: artifact.alt || artifact.title || 'Computed molecular structure',
+            kind: 'image',
+            type: 'image/svg+xml',
+            chemistry: true,
+            previewUrl: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(artifact.content)
+          };
+        });
+      }
+      function responseCitations(payload) {
+        const rag = payload.rag && Array.isArray(payload.rag.citations) ? payload.rag.citations : [];
+        const chemistry = payload.chemistry && payload.chemistry.report && Array.isArray(payload.chemistry.report.sources) ? payload.chemistry.report.sources : [];
+        return rag.concat(chemistry).filter(function (citation, index, all) {
+          return citation && citation.url && all.findIndex(function (candidate) { return candidate && candidate.url === citation.url; }) === index;
+        });
+      }
+      function setBusy(next, isError) {
+        busy = next;
+        els.send.disabled = next;
+        els.attach.disabled = next;
+        els.connectionDot.className = 'connection-dot' + (next ? ' busy' : isError ? ' error' : '');
+        els.connectionDot.title = next ? 'Working' : isError ? 'Backend error' : 'Ready';
+      }
+      function setStatus(title, text) { els.status.innerHTML = '<strong>' + escapeHtml(title) + '</strong> ' + escapeHtml(text); }
+      function showToast(text) {
+        clearTimeout(toastTimer);
+        els.toast.textContent = text;
+        els.toast.hidden = false;
+        toastTimer = setTimeout(function () { els.toast.hidden = true; }, 4200);
+      }
+      function scrollToBottom() { els.transcript.scrollTop = els.transcript.scrollHeight; }
+      function autoSizeTextarea() { els.message.style.height = 'auto'; els.message.style.height = Math.min(170, els.message.scrollHeight) + 'px'; }
+
+      els.chatForm.addEventListener('submit', async function (event) {
+        event.preventDefault();
+        if (busy || attachments.some(function (item) { return item.processing; })) return;
+        let message = els.message.value.trim();
+        if (!message && attachments.some(function (item) { return item.workflow === 'coa'; })) message = 'Parse and review this COA. Extract all reported results, check internal consistency, preserve provenance, and prepare a proposed Terproduct COA record.';
+        if (!message && attachments.some(function (item) { return item.workflow === 'product-photo'; })) message = 'Identify and compare the products shown. Read visible labels, barcodes, ingredients, and claims; distinguish facts from inference; and prepare Terproduct lookup keys.';
+        if (!message && attachments.some(function (item) { return item.workflow === 'document'; })) message = 'Analyze the attached PDF and summarize the most important findings, caveats, provenance, and next actions.';
+        if (!message) return;
+        const outgoing = attachments.slice();
+        const displayAttachments = outgoing.map(function (item) { return { id: item.id, name: item.name, kind: item.kind, type: item.type, workflow: item.workflow, size: item.size, previewUrl: item.previewUrl }; });
+        attachments = [];
+        renderAttachments();
+        els.message.value = '';
+        autoSizeTextarea();
+        addMessage('user', message, '', displayAttachments, false);
+        setBusy(true, false);
+        setStatus('Working.', 'Routing the request through the Terpedia agent stack.');
+        try {
+          const payload = await sendMessage(message, outgoing);
+          if (payload.panel?.auto_invited && Array.isArray(payload.panel.participants)) showToast('Terpedia invited supporting agents for this message.');
+          (payload.participant_responses || []).forEach(function (participant) {
+            addMessage('assistant', participant.response || '', participant.name || agentNames[participant.agent] || participant.agent, [], false, participant.agent);
+          });
+          addMessage('assistant', payload.response || 'No response text returned.', summarizePayload(payload), chemistryAttachments(payload), false, payload.panel ? 'panel_moderator' : payload.agent, responseCitations(payload), payloadProjectArtifacts(payload));
+          if (payload.terproduct_proposal) prepareTerproductPreview(payload.terproduct_proposal, payload, displayAttachments).catch(function (error) { showToast(error.message); });
+          if (payload.workspace_action) showWorkspacePreview(payload.workspace_action);
+          setBusy(false, false);
+          setStatus('Ready.', 'Last response returned from ' + (payload.agent_display_name || payload.agent || 'the backend') + '.');
+        } catch (error) {
+          addMessage('assistant', error.message || String(error), 'Error', [], true);
+          setBusy(false, true);
+          setStatus('Backend error.', error.message || String(error));
+        } finally { els.message.focus(); }
+      });
+
+      els.message.addEventListener('input', autoSizeTextarea);
+      els.message.addEventListener('keydown', function (event) { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); els.chatForm.requestSubmit(); } });
+      function closeAttachmentMenu() {
+        els.attachmentMenu.hidden = true;
+        els.attach.setAttribute('aria-expanded', 'false');
+      }
+      els.attach.addEventListener('click', function () {
+        const willOpen = els.attachmentMenu.hidden;
+        els.attachmentMenu.hidden = !willOpen;
+        els.attach.setAttribute('aria-expanded', String(willOpen));
+        if (willOpen) els.attachmentMenu.querySelector('button').focus();
+      });
+      els.attachmentMenu.addEventListener('click', function (event) {
+        const action = event.target.closest('[data-attachment-action]');
+        if (!action) return;
+        if (action.dataset.attachmentAction === 'rdkit') {
+          closeAttachmentMenu();
+          els.chemistryDialog.showModal();
+          els.chemistryInput.focus();
+          return;
+        }
+        const input = action.dataset.attachmentAction === 'camera' ? els.cameraInput
+          : action.dataset.attachmentAction === 'product-photo' ? els.productPhotoInput
+            : action.dataset.attachmentAction === 'coa' ? els.coaInput : els.pdfInput;
+        closeAttachmentMenu();
+        input.click();
+      });
+      els.googleDrive.addEventListener('click', function () { loadGoogleFiles().catch(function (error) { showToast(error.message); }); });
+      els.cameraInput.addEventListener('change', function () { addFiles(els.cameraInput.files, 'product-photo'); els.cameraInput.value = ''; });
+      els.productPhotoInput.addEventListener('change', function () { addFiles(els.productPhotoInput.files, 'product-photo'); els.productPhotoInput.value = ''; });
+      els.coaInput.addEventListener('change', function () { addFiles(els.coaInput.files, 'coa'); els.coaInput.value = ''; });
+      els.pdfInput.addEventListener('change', function () { addFiles(els.pdfInput.files, 'document'); els.pdfInput.value = ''; });
+      function closeChemistryDialog() { els.chemistryDialog.close(); }
+      els.closeChemistry.addEventListener('click', closeChemistryDialog);
+      els.cancelChemistry.addEventListener('click', closeChemistryDialog);
+      els.chemistryForm.addEventListener('submit', function (event) {
+        event.preventDefault();
+        const input = els.chemistryInput.value.trim();
+        if (!input) return;
+        const instructions = {
+          analyze: 'Use RDKit to analyze this molecule. Return normalized identifiers, descriptors, Lipinski/QED heuristics, structural alerts, and a 2D depiction: ',
+          batch: 'Use RDKit to calculate a batch descriptor report for these molecules (put each Name, SMILES, or InChI on its own line): ',
+          resolve: 'Use RDKit and PubChem to resolve this chemical name, preserve the source URL and retrieval time, then analyze and depict it: ',
+          compare: 'Use RDKit to compare these molecules with Morgan fingerprint Tanimoto similarity, a maximum common substructure, and a depiction grid: ',
+          substructure: 'Use RDKit for a chirality-aware substructure search. Treat the first structure as the query and the remaining structures as targets: ',
+          reaction: 'Use RDKit to parse, validate, map, and depict this reaction SMILES or SMARTS: ',
+          pharmacophore: 'Use RDKit ETKDG conformers to generate ligand pharmacophore feature points for: ',
+          metabolism: 'Use RDKit to enumerate bounded Phase I and Phase II metabolism candidates with transformation provenance for: ',
+          dock: 'Dock this ligand and receptor with AutoDock Vina. Preserve the PDB identifier or explicit docking site, seed, score provenance, and the warning that scores are not affinities: ',
+          'dock-batch': 'Use low-compute batch docking for these ligands against the specified PDB receptor. Reuse receptor preparation, preserve the seed and protocol, and do not interpret scores as affinities: ',
+          'dock-hq': 'Run validated HQ multi-seed docking for these ligands against the specified PDB receptor. Require co-crystal redocking and preserve Vina/Vinardo ranks separately: ',
+          study: 'Analyze these target-fishing and docking records with the reproducible study workflow. Report tool coverage, consensus sensitivity, molecular-size bias, ligand efficiency, enrichment, and evidence-weighted priorities: '
+        };
+        els.message.value = instructions[els.chemistryOperation.value] + input;
+        els.useRdkit.checked = true;
+        saveConversationControls();
+        closeChemistryDialog();
+        autoSizeTextarea();
+        els.message.focus();
+      });
+      els.googleConnect.addEventListener('click', function () { connectGoogleWorkspace().catch(function (error) { showToast(error.message); }); });
+      els.closeGooglePicker.addEventListener('click', function () { els.googlePickerDialog.close(); });
+      els.googlePickerSearch.addEventListener('submit', function (event) { event.preventDefault(); loadGoogleFiles().catch(function (error) { showToast(error.message); }); });
+      els.googleFileList.addEventListener('click', function (event) {
+        const button = event.target.closest('[data-google-file]');
+        if (button) attachGoogleFile(button.dataset.googleFile).catch(function (error) { showToast(error.message); });
+      });
+      function cancelWorkspaceWrite() { pendingWorkspaceAction = null; els.workspaceConfirmDialog.close(); }
+      els.closeWorkspaceConfirm.addEventListener('click', cancelWorkspaceWrite);
+      els.cancelWorkspaceWrite.addEventListener('click', cancelWorkspaceWrite);
+      els.confirmWorkspaceWrite.addEventListener('click', function () { confirmWorkspaceWrite().catch(function (error) { showToast(error.message); }); });
+      els.attachmentTray.addEventListener('click', function (event) {
+        const button = event.target.closest('[data-remove-attachment]');
+        if (!button) return;
+        attachments = attachments.filter(function (item) { return item.id !== button.dataset.removeAttachment; });
+        renderAttachments();
+      });
+      els.messages.addEventListener('click', function (event) {
+        const artifactButton = event.target.closest('[data-project-artifact]');
+        if (artifactButton) {
+          showProjectArtifact(artifactButton.dataset.projectArtifact).catch(function (error) { showToast(error.message); });
+          return;
+        }
+        const suggestionButton = event.target.closest('[data-suggestion]');
+        if (!suggestionButton) return;
+        els.message.value = suggestionButton.dataset.suggestion;
+        autoSizeTextarea();
+        els.message.focus();
+      });
+      els.conversationList.addEventListener('click', function (event) {
+        const row = event.target.closest('[data-conversation]');
+        if (!row) return;
+        if (event.target.closest('.conversation-delete')) {
+          conversations = conversations.filter(function (conversation) { return conversation.id !== row.dataset.conversation; });
+          if (!conversations.length) conversations.push(createConversation());
+          if (activeId === row.dataset.conversation) activeId = conversations[0].id;
+        } else activeId = row.dataset.conversation;
+        attachments = [];
+        syncControlsFromConversation();
+        persist();
+        renderAttachments();
+        renderAll();
+        document.body.classList.remove('sidebar-open');
+      });
+      els.conversationSearch.addEventListener('input', renderConversations);
+      els.newChat.addEventListener('click', function () {
+        const conversation = createConversation();
+        conversations.push(conversation);
+        activeId = conversation.id;
+        attachments = [];
+        syncControlsFromConversation();
+        persist();
+        renderAttachments();
+        renderAll();
+        els.message.focus();
+        document.body.classList.remove('sidebar-open');
+      });
+      els.useRag.addEventListener('change', saveConversationControls);
+      els.useRdkit.addEventListener('change', saveConversationControls);
+      els.apiBase.addEventListener('change', function () { els.apiBase.value = normalizeBase(els.apiBase.value); localStorage.setItem(API_KEY, els.apiBase.value); });
+      els.theme.addEventListener('change', function () { applyTheme(els.theme.value, true); });
+      els.themeToggle.addEventListener('click', function () { applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark', true); });
+      els.workspaceLayout.addEventListener('click', function () {
+        const willOpen = els.layoutMenu.hidden;
+        els.layoutMenu.hidden = !willOpen;
+        els.workspaceLayout.setAttribute('aria-expanded', String(willOpen));
+      });
+      els.layoutMenu.addEventListener('click', function (event) {
+        const button = event.target.closest('[data-layout]');
+        if (button) setWorkspaceLayout(button.dataset.layout, true);
+      });
+      els.projectTabs.addEventListener('click', function (event) {
+        const tab = event.target.closest('[data-project-tab]');
+        if (tab) showProjectArtifact(tab.dataset.projectTab).catch(function (error) { showToast(error.message); });
+      });
+      els.projectOpen.addEventListener('click', function () { launchProjectArtifact().catch(function (error) { showToast(error.message); }); });
+      els.projectExternal.addEventListener('click', popOutProjectPanel);
+      els.closeProject.addEventListener('click', function () {
+        if (popoutProject) { window.close(); return; }
+        setWorkspaceLayout('chat', true);
+      });
+      els.githubConnect.addEventListener('click', function () {
+        if (authToken()) syncGithubHistory(conversations).catch(function (error) { showToast(error.message); });
+        else location.href = normalizeBase(els.apiBase.value) + '/api/github/connect';
+      });
+      els.join.addEventListener('click', openAuthDialog);
+      els.accountAction.addEventListener('click', openAuthDialog);
+      els.closeAuth.addEventListener('click', function () { els.authDialog.close(); });
+      els.githubSignin.addEventListener('click', function () { location.href = normalizeBase(els.apiBase.value) + '/api/github/connect'; });
+      els.signOut.addEventListener('click', signOut);
+      matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () { if ((localStorage.getItem(THEME_KEY) || 'system') === 'system') applyTheme('system', false); });
+      [els.openSettings, els.topSettings].forEach(function (button) { button.addEventListener('click', function () { els.settingsDialog.showModal(); }); });
+      els.closeSettings.addEventListener('click', function () { els.settingsDialog.close(); });
+      els.openSidebar.addEventListener('click', function () { document.body.classList.add('sidebar-open'); });
+      [els.closeSidebar, els.sidebarOverlay].forEach(function (button) { button.addEventListener('click', function () { document.body.classList.remove('sidebar-open'); }); });
+
+      document.addEventListener('dragenter', function (event) { if (event.dataTransfer && Array.from(event.dataTransfer.types).includes('Files')) { dragDepth += 1; document.body.classList.add('dragging'); } });
+      document.addEventListener('dragleave', function () { dragDepth -= 1; if (dragDepth <= 0) { dragDepth = 0; document.body.classList.remove('dragging'); } });
+      document.addEventListener('dragover', function (event) { event.preventDefault(); });
+      document.addEventListener('drop', function (event) { event.preventDefault(); dragDepth = 0; document.body.classList.remove('dragging'); if (event.dataTransfer) addFiles(event.dataTransfer.files); });
+      document.addEventListener('click', function (event) {
+        if (!event.target.closest('#attach') && !event.target.closest('#attachment-menu')) closeAttachmentMenu();
+        if (!event.target.closest('#workspace-layout') && !event.target.closest('#layout-menu')) {
+          els.layoutMenu.hidden = true;
+          els.workspaceLayout.setAttribute('aria-expanded', 'false');
+        }
+      });
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+          closeAttachmentMenu();
+          els.layoutMenu.hidden = true;
+          els.workspaceLayout.setAttribute('aria-expanded', 'false');
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
