@@ -924,7 +924,7 @@
         <div class="top-controls">
           <label class="rag-toggle" title="Use retrieval-augmented generation"><input id="use-rag" type="checkbox" checked><span>RAG</span></label>
           <label class="rag-toggle" title="Run deterministic chemistry with RDKit"><input id="use-rdkit" type="checkbox"><span>RDKit</span></label>
-          <div class="guest-session" id="guest-session" title="Guest time starts with your first message"><span class="guest-session-label">Guest</span><time class="guest-countdown" id="guest-countdown" datetime="PT1H">1:00:00</time><button class="join-button" id="join" type="button">Sign in</button></div>
+          <div class="guest-session" id="guest-session" title="Guests get about 15 answers a day; sign in for a free monthly allowance."><span class="guest-session-label">Guest</span><span class="guest-countdown" id="guest-countdown">Free</span><button class="join-button" id="join" type="button">Sign in</button></div>
           <button class="icon-button" id="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode"><i data-lucide="moon"></i></button>
           <div class="layout-control">
             <button class="icon-button" id="workspace-layout" type="button" aria-label="Arrange workspace" title="Arrange workspace" aria-expanded="false"><i data-lucide="panels-top-left"></i></button>
@@ -1648,20 +1648,34 @@
         els.guestSession.hidden = false;
         els.join.hidden = false;
         els.guestSession.querySelector('.guest-session-label').textContent = 'Guest';
-        const hasStarted = Number.isFinite(guestSessionEndsAt) && guestSessionEndsAt > 0;
-        const seconds = hasStarted ? Math.max(0, Math.ceil((guestSessionEndsAt - Date.now()) / 1000)) : 3600;
-        els.guestCountdown.textContent = seconds === 0 && hasStarted ? 'Ended' : formatCountdown(seconds);
-        els.guestCountdown.classList.toggle('ended', seconds === 0 && hasStarted);
-        els.guestCountdown.dateTime = 'PT' + seconds + 'S';
-        const allowanceText = memberAllowance && Number.isFinite(memberAllowance.ordinary_requests_remaining)
-          ? ' · about ' + memberAllowance.ordinary_requests_remaining + ' ordinary answers left today'
-          : '';
-        els.guestSession.title = (hasStarted ? 'Guest session time remaining' : 'Guest time starts with your first message') + allowanceText;
+        const remaining = memberAllowance && Number.isFinite(memberAllowance.ordinary_requests_remaining) ? memberAllowance.ordinary_requests_remaining : null;
+        const hasSession = Number.isFinite(guestSessionEndsAt) && guestSessionEndsAt > 0;
+        const sessionSeconds = hasSession ? Math.max(0, Math.ceil((guestSessionEndsAt - Date.now()) / 1000)) : null;
+        if (hasSession && sessionSeconds === 0) {
+          els.guestCountdown.textContent = 'Ended';
+        } else if (remaining !== null) {
+          els.guestCountdown.textContent = remaining === 0 ? 'Done today' : remaining + ' left';
+        } else {
+          els.guestCountdown.textContent = 'Free';
+        }
+        els.guestCountdown.classList.toggle('ended', remaining === 0 || (hasSession && sessionSeconds === 0));
+        els.guestCountdown.removeAttribute('datetime');
+        const resetText = ' Resets at ' + localResetTime() + '.';
+        els.guestSession.title = remaining === null
+          ? 'Guests get about 15 answers a day; sign in for a free monthly allowance.'
+          : remaining === 0
+            ? 'Today\'s guest answers are used up.' + resetText + ' Sign in for a free monthly allowance.'
+            : 'About ' + remaining + ' guest answers left today.' + resetText + (hasSession ? ' Session time left: ' + formatCountdown(sessionSeconds) + '.' : '');
+      }
+      function localResetTime() {
+        const reset = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate() + 1));
+        return reset.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
       }
       function startGuestCountdown() {
         clearInterval(guestCountdownTimer);
         renderGuestCountdown();
-        guestCountdownTimer = setInterval(renderGuestCountdown, 1000);
+        // Only tick when a timed session is in play (the backend can enable one); otherwise the badge is static.
+        if (Number.isFinite(guestSessionEndsAt) && guestSessionEndsAt > 0) guestCountdownTimer = setInterval(renderGuestCountdown, 1000);
       }
       function captureGuestSession(response, payload) {
         const payloadAllowance = payload && payload.allowance;
@@ -1676,12 +1690,19 @@
           renderGuestCountdown();
           return;
         }
+        // A 429 tells us the allowance is exhausted even though no answer came back.
+        if (payload && payload.code === 'RATE_LIMIT_EXCEEDED' && payload.window === 'daily') {
+          memberAllowance = { tier: 'anonymous', window: 'daily', ordinary_requests_remaining: 0 };
+        }
         const headerValue = response.headers.get('X-RateLimit-Session-Ends');
         const payloadValue = payload && payload.session && payload.session.endsAt;
         const parsed = headerValue ? Date.parse(headerValue) : Number(payloadValue || 0);
-        if (!Number.isFinite(parsed) || parsed <= 0) return;
-        guestSessionEndsAt = parsed;
-        localStorage.setItem(GUEST_SESSION_END_KEY, String(parsed));
+        if (Number.isFinite(parsed) && parsed > 0) {
+          guestSessionEndsAt = parsed;
+          localStorage.setItem(GUEST_SESSION_END_KEY, String(parsed));
+          startGuestCountdown();
+          return;
+        }
         renderGuestCountdown();
       }
       function acceptGithubCallback() {
@@ -2108,7 +2129,13 @@
       }
 
       function payloadError(payload, response) {
-        return new Error((payload.message || payload.error || (response && response.statusText) || 'Request failed') + (payload.retryAfter ? ' Try again in ' + formatRetryAfter(payload.retryAfter) + '.' : ''));
+        const base = payload.message || payload.error || (response && response.statusText) || 'Request failed';
+        if (payload.code === 'RATE_LIMIT_EXCEEDED' && payload.resetAt && payload.window !== 'minute') {
+          const reset = new Date(payload.resetAt);
+          const when = Number.isFinite(reset.getTime()) ? reset.toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' }) : null;
+          return new Error(base.replace(/ They reset at midnight UTC,/, when ? ' They reset ' + when + ' your time,' : ' They reset at midnight UTC,'));
+        }
+        return new Error(base + (payload.retryAfter ? ' Try again in ' + formatRetryAfter(payload.retryAfter) + '.' : ''));
       }
       // Sends one chat turn. Asks the backend for server-sent events; older
       // backends answer with plain JSON and are handled the same way.
