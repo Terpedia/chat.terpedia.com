@@ -1172,8 +1172,9 @@
       let dockview = null;
       let dockviewPromise = null;
       let githubAuthEnabled = false;
-      const utcDayStart = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate());
-      if (guestSessionEndsAt && guestSessionEndsAt < utcDayStart) {
+      // A session end in the past is stale (the backend no longer issues timed
+      // sessions by default); it would otherwise show "Ended" forever.
+      if (guestSessionEndsAt && guestSessionEndsAt <= Date.now()) {
         guestSessionEndsAt = 0;
         localStorage.removeItem(GUEST_SESSION_END_KEY);
       }
