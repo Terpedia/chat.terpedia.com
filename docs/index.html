@@ -560,6 +560,12 @@
 
     .message-attachments { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 9px; }
     .message-image { width: 148px; aspect-ratio: 4 / 3; border-radius: var(--radius); object-fit: cover; border: 1px solid var(--line); }
+    .dock-viewer { position: relative; width: min(640px, 100%); margin: 12px 0 4px; border: 1px solid var(--line); background: #fff; }
+    .dock-viewer .dock-canvas { width: 100%; height: 360px; }
+    .dock-viewer .dock-caption { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 6px 10px; border-top: 1px solid var(--line); color: var(--muted); font-family: Montserrat, system-ui, sans-serif; font-size: 10px; letter-spacing: .04em; background: var(--surface); }
+    .dock-viewer .dock-caption strong { color: var(--ink); font-weight: 600; }
+    .dock-viewer .dock-status { position: absolute; inset: 0 0 34px 0; display: grid; place-items: center; color: var(--muted); font-family: Montserrat, system-ui, sans-serif; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: #fff; }
+    .dock-viewer.ready .dock-status { display: none; }
     .chemistry-figure { width: min(520px, 100%); margin: 0; }
     .chemistry-figure .message-image { width: 100%; height: auto; aspect-ratio: auto; object-fit: contain; background: #fff; }
     .chemistry-figure figcaption { margin-top: 4px; color: var(--muted); font-family: Montserrat, system-ui, sans-serif; font-size: 10px; }
@@ -1942,6 +1948,45 @@
         hydrateIcons();
       }
 
+      let threeDmolLoading = null;
+      function load3Dmol() {
+        if (window.$3Dmol) return Promise.resolve(window.$3Dmol);
+        if (!threeDmolLoading) {
+          threeDmolLoading = new Promise(function (resolve, reject) {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/3Dmol/2.4.2/3Dmol-min.js';
+            script.onload = function () { resolve(window.$3Dmol); };
+            script.onerror = function () { threeDmolLoading = null; reject(new Error('3Dmol failed to load')); };
+            document.head.appendChild(script);
+          });
+        }
+        return threeDmolLoading;
+      }
+      function mountDockViewers() {
+        const conversation = activeConversation();
+        if (!conversation) return;
+        els.messages.querySelectorAll('.dock-viewer[data-dock-message]:not(.mounted)').forEach(function (container) {
+          const message = conversation.messages.find(function (item) { return item.id === container.dataset.dockMessage; });
+          if (!message || !message.docking) return;
+          container.classList.add('mounted');
+          const status = container.querySelector('.dock-status');
+          load3Dmol().then(function ($3Dmol) {
+            const viewer = $3Dmol.createViewer(container.querySelector('.dock-canvas'), { backgroundColor: '#ffffff' });
+            $3Dmol.download('pdb:' + message.docking.pdbId, viewer, { doAssembly: false }, function () {
+              viewer.setStyle({}, { cartoon: { color: '#cfd8d3', opacity: 0.85 } });
+              viewer.addModel(message.docking.pose, 'pdbqt');
+              const ligand = { model: 1 };
+              viewer.setStyle(ligand, { stick: { colorscheme: 'greenCarbon', radius: 0.22 } });
+              viewer.addStyle({ model: 0, within: { distance: 4.5, sel: ligand } }, { stick: { radius: 0.12, colorscheme: 'whiteCarbon' } });
+              viewer.addSurface($3Dmol.SurfaceType.VDW, { opacity: 0.35, color: '#e8efe9' }, { model: 0, within: { distance: 6, sel: ligand } });
+              viewer.zoomTo(ligand);
+              viewer.zoom(0.8);
+              viewer.render();
+              container.classList.add('ready');
+            });
+          }).catch(function (error) { if (status) status.textContent = 'Viewer unavailable: ' + error.message; });
+        });
+      }
       function renderMessages() {
         const conversation = activeConversation();
         if (!conversation || !conversation.messages.length) {
@@ -1956,6 +2001,7 @@
         }
         els.messages.innerHTML = conversation.messages.map(renderMessage).join('');
         hydrateIcons();
+        mountDockViewers();
         requestAnimationFrame(scrollToBottom);
       }
       function suggestion(title, text) {
@@ -1970,9 +2016,10 @@
           : '';
         const meta = message.meta || tools ? '<div class="message-meta">' + escapeHtml(message.meta || '') + tools + '</div>' : '';
         const sources = renderMessageSources(message.citations || [], message.id, message.text);
+        const dockViewer = message.docking && message.docking.pose ? '<div class="dock-viewer" data-dock-message="' + escapeHtml(message.id) + '"><div class="dock-canvas"></div><div class="dock-status">Loading structure from RCSB…</div><div class="dock-caption"><span><strong>' + escapeHtml(message.docking.ligand || 'Ligand') + '</strong> in ' + escapeHtml(message.docking.target || message.docking.pdbId) + ' · best Vina score <strong>' + escapeHtml(String(message.docking.score)) + ' kcal/mol</strong></span><span>Predicted pose, rigid receptor · not a measured affinity · <a href="https://www.rcsb.org/structure/' + escapeHtml(message.docking.pdbId) + '" target="_blank" rel="noopener noreferrer">PDB ' + escapeHtml(message.docking.pdbId) + '</a></span></div></div>' : '';
         const productCitations = (message.products || []).map(function (product) { return { id: product.id, title: (product.brand ? product.brand + ' — ' : '') + product.name, url: product.url }; });
         return '<article class="message-row ' + escapeHtml(message.role) + (message.error ? ' error-message' : '') + '"><div class="message-inner">' + avatar +
-          '<div class="message-content">' + attachmentsHtml + renderMarkdown(message.text, message.id, (message.citations || []).concat(productCitations)) + renderProductCards(message.products || [], message.id) + renderProjectActions(message.projectArtifacts || [], message.id) + sources + meta + '</div></div></article>';
+          '<div class="message-content">' + attachmentsHtml + renderMarkdown(message.text, message.id, (message.citations || []).concat(productCitations)) + dockViewer + renderProductCards(message.products || [], message.id) + renderProjectActions(message.projectArtifacts || [], message.id) + sources + meta + '</div></div></article>';
       }
       function renderProductCards(items, messageId) {
         if (!items.length) return '';
@@ -2034,10 +2081,10 @@
         persist();
         refreshHeader();
       }
-      function addMessage(role, text, meta, messageAttachments, isError, agentId, citations, messageProjectArtifacts, products) {
+      function addMessage(role, text, meta, messageAttachments, isError, agentId, citations, messageProjectArtifacts, products, docking) {
         const conversation = activeConversation();
         const now = new Date().toISOString();
-        conversation.messages.push({ id: newId(), role: role, text: text, meta: meta || '', agentId: agentId || '', attachments: messageAttachments || [], citations: citations || [], projectArtifacts: messageProjectArtifacts || [], products: products || [], error: Boolean(isError), createdAt: now });
+        conversation.messages.push({ id: newId(), role: role, text: text, meta: meta || '', agentId: agentId || '', attachments: messageAttachments || [], citations: citations || [], projectArtifacts: messageProjectArtifacts || [], products: products || [], docking: docking || null, error: Boolean(isError), createdAt: now });
         if (role === 'user' && conversation.title === 'New chat') conversation.title = (plainText(text) || 'Attachment review').slice(0, 44);
         conversation.updatedAt = now;
         persist();
@@ -2240,7 +2287,7 @@
         if (payload.agent_display_name || payload.agent) pieces.push(payload.agent_display_name || payload.agent);
         const sourceCount = responseCitations(payload).length;
         if (sourceCount) pieces.push(sourceCount + (sourceCount === 1 ? ' source' : ' sources'));
-        if (payload.chemistry) pieces.push((payload.chemistry.tool === 'autodock_vina' ? 'Vina docking' : 'RDKit ' + (payload.chemistry.operation || 'computed')) + (payload.chemistry.status === 'error' ? ' (failed)' : ''));
+        if (payload.chemistry) pieces.push((payload.chemistry.tool === 'autodock_vina' ? 'AutoDock Vina' : 'RDKit ' + (payload.chemistry.operation || 'computed')) + (payload.chemistry.status === 'error' ? ' (failed)' : payload.chemistry.status === 'unsupported_target' ? ' (no prepared target)' : ''));
         if (payload.products && Array.isArray(payload.products.items) && payload.products.items.length) pieces.push(payload.products.items.length + ' catalog products');
         return pieces.join(' · ') || 'Terpedia';
       }
@@ -2259,6 +2306,24 @@
             previewUrl: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(artifact.content)
           };
         });
+      }
+      // Docking pose for the 3D viewer: the top Vina pose (PDBQT) plus the receptor it was docked into.
+      function payloadDocking(payload) {
+        const chemistry = payload.chemistry;
+        if (!chemistry || chemistry.status !== 'ok' || !/^dock/.test(chemistry.operation || '')) return null;
+        const pose = (chemistry.artifacts || []).find(function (artifact) { return artifact.mime_type === 'chemical/x-pdbqt' && typeof artifact.content === 'string' && artifact.content.includes('ATOM'); });
+        const report = chemistry.report || {};
+        const pdbId = (chemistry.target && chemistry.target.pdbId) || (pose && pose.receiver && pose.receiver.pdb_id) || (report.receptor && report.receptor.source && report.receptor.source.pdb_id) || (pose && pose.receptor && pose.receptor.pdb_id) || null;
+        if (!pose || !pdbId) return null;
+        const site = report.site || pose.site || null;
+        return {
+          pdbId: String(pdbId).toUpperCase(),
+          target: chemistry.target && chemistry.target.name ? chemistry.target.name : null,
+          ligand: (report.ligand && (report.ligand.label || report.ligand.name)) || (pose.title || '').replace(/ predicted pose.*$/i, '') || 'Ligand',
+          score: report.best_score_kcal_mol != null ? report.best_score_kcal_mol : ((report.poses || [])[0] || {}).score_kcal_mol,
+          pose: pose.content.slice(0, 200000),
+          center: site && site.center ? site.center : null
+        };
       }
       function payloadProducts(payload) {
         const items = payload.products && Array.isArray(payload.products.items) ? payload.products.items : [];
@@ -2324,7 +2389,7 @@
           (payload.participant_responses || []).forEach(function (participant) {
             addMessage('assistant', participant.response || '', participant.name || agentNames[participant.agent] || participant.agent, [], false, participant.agent);
           });
-          addMessage('assistant', payload.response || 'No response text returned.', summarizePayload(payload), chemistryAttachments(payload), false, payload.panel ? 'panel_moderator' : payload.agent, responseCitations(payload), payloadProjectArtifacts(payload), payloadProducts(payload));
+          addMessage('assistant', payload.response || 'No response text returned.', summarizePayload(payload), chemistryAttachments(payload), false, payload.panel ? 'panel_moderator' : payload.agent, responseCitations(payload), payloadProjectArtifacts(payload), payloadProducts(payload), payloadDocking(payload));
           if (payload.workspace_action) showWorkspacePreview(payload.workspace_action);
           setBusy(false, false);
           setStatus('Ready.', 'Last response returned from ' + (payload.agent_display_name || payload.agent || 'the backend') + '.');
