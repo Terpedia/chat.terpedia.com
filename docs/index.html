@@ -499,7 +499,12 @@
     .message-content code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
     .message-content :not(pre) > code { background: var(--surface-strong); border-radius: var(--radius); padding: 2px 4px; }
     .message-content ul { padding-left: 20px; }
-    .message-meta { color: var(--muted); font-family: Montserrat, system-ui, sans-serif; font-size: 10px; margin-top: 8px; letter-spacing: 0; }
+    .message-meta { color: var(--muted); font-family: Montserrat, system-ui, sans-serif; font-size: 10px; margin-top: 8px; letter-spacing: 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .message-tools { display: inline-flex; gap: 4px; margin-left: auto; }
+    .message-tool { border: 1px solid transparent; background: transparent; color: var(--muted); padding: 3px 7px; font: 600 10px/1 Montserrat, system-ui, sans-serif; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+    .message-tool:hover { color: var(--brand-strong); border-color: var(--line); background: var(--surface); }
+    .message-tool .icon { width: 12px; height: 12px; }
+    .message-row.assistant:not(:hover) .message-tools { opacity: .55; }
     .product-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 9px; margin: 12px 0 4px; }
     .product-card { display: block; border: 1px solid var(--line); background: var(--surface); padding: 10px 12px; color: inherit; text-decoration: none; scroll-margin-top: calc(var(--topbar-height) + 12px); }
     .product-card:hover { border-color: var(--brand); }
@@ -1960,7 +1965,10 @@
         const attachmentsHtml = renderMessageAttachments(message.attachments || []);
         const visual = agentVisual(message.agentId);
         const avatar = message.role === 'user' ? '' : '<div class="avatar" data-agent="' + escapeHtml(message.agentId || 'terpedia_agent') + '" style="--agent-color:' + visual.color + '" title="' + escapeHtml(agentNames[message.agentId] || message.meta || 'Terpedia') + '"><i data-lucide="' + visual.icon + '"></i></div>';
-        const meta = message.meta ? '<div class="message-meta">' + escapeHtml(message.meta) + '</div>' : '';
+        const tools = message.role === 'assistant' && !message.error && message.text
+          ? '<span class="message-tools"><button class="message-tool" type="button" data-export-doc="' + escapeHtml(message.id) + '" title="Create a Google Doc from this answer, with its sources"><i data-lucide="file-text"></i>Google Doc</button><button class="message-tool" type="button" data-copy-message="' + escapeHtml(message.id) + '" title="Copy as Markdown"><i data-lucide="copy"></i>Copy</button></span>'
+          : '';
+        const meta = message.meta || tools ? '<div class="message-meta">' + escapeHtml(message.meta || '') + tools + '</div>' : '';
         const sources = renderMessageSources(message.citations || [], message.id, message.text);
         const productCitations = (message.products || []).map(function (product) { return { id: product.id, title: (product.brand ? product.brand + ' — ' : '') + product.name, url: product.url }; });
         return '<article class="message-row ' + escapeHtml(message.role) + (message.error ? ' error-message' : '') + '"><div class="message-inner">' + avatar +
@@ -2445,7 +2453,44 @@
         attachments = attachments.filter(function (item) { return item.id !== button.dataset.removeAttachment; });
         renderAttachments();
       });
+      // Markdown → plain text that reads well in a Google Doc (headings kept as lines, bullets kept, emphasis stripped).
+      function markdownToDocText(markdown) {
+        return stripLegacyFooter(markdown)
+          .replace(/```[\s\S]*?```/g, function (block) { return block.replace(/```\w*\n?/g, ''); })
+          .replace(/^#{1,6}\s+(.+)$/gm, function (_, heading) { return '\n' + heading.toUpperCase() + '\n'; })
+          .replace(/\*\*(.+?)\*\*/g, '$1').replace(/(^|[^*])\*([^*\n]+)\*/g, '$1$2').replace(/`([^`]+)`/g, '$1')
+          .replace(/^\s*[*+]\s+/gm, '- ').replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, '$1 ($2)')
+          .replace(/\n{3,}/g, '\n\n').trim();
+      }
+      async function exportMessageToGoogleDoc(messageId) {
+        const conversation = activeConversation();
+        const message = conversation && conversation.messages.find(function (item) { return item.id === messageId; });
+        if (!message) return;
+        if (!authToken()) { showToast('Sign in, then connect Google Drive in Settings, to export answers as Google Docs.'); return; }
+        const question = [...conversation.messages].reverse().find(function (item) { return item.role === 'user' && item.createdAt <= message.createdAt; });
+        const title = ('Terpedia: ' + (plainText(question ? question.text : conversation.title) || 'Answer')).slice(0, 120);
+        const products = (message.products || []).map(function (product) { return '[' + product.id + '] ' + (product.brand ? product.brand + ' — ' : '') + product.name + (product.url ? ' (' + product.url + ')' : ''); });
+        const content = (question ? 'QUESTION\n' + plainText(question.text) + '\n\nANSWER\n' : '') + markdownToDocText(message.text) + (products.length ? '\n\nCATALOG PRODUCTS\n' + products.join('\n') : '');
+        const sources = (message.citations || []).map(function (citation) { return { id: citation.id, title: citation.title, url: citation.url }; });
+        showToast('Preparing the Google Doc preview…');
+        const response = await fetch(normalizeBase(els.apiBase.value) + '/api/google/drive/actions/preview', {
+          method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, apiHeaders()),
+          body: JSON.stringify({ action: { operation: 'create', fileType: 'docs', title: title, content: content }, provenance: { agent: agentNames[message.agentId] || message.meta || 'Terpedia', sources: sources } })
+        });
+        const result = await response.json().catch(function () { return {}; });
+        if (!response.ok) throw new Error(result.error || (response.status === 401 ? 'Sign in to export to Google Docs.' : 'Google Drive is not connected. Connect it in Settings.'));
+        showWorkspacePreview(result);
+      }
       els.messages.addEventListener('click', function (event) {
+        const exportButton = event.target.closest('[data-export-doc]');
+        if (exportButton) { exportMessageToGoogleDoc(exportButton.dataset.exportDoc).catch(function (error) { showToast(error.message); }); return; }
+        const copyButton = event.target.closest('[data-copy-message]');
+        if (copyButton) {
+          const conversation = activeConversation();
+          const message = conversation && conversation.messages.find(function (item) { return item.id === copyButton.dataset.copyMessage; });
+          if (message && navigator.clipboard) navigator.clipboard.writeText(stripLegacyFooter(message.text)).then(function () { showToast('Copied as Markdown.'); }, function () { showToast('Copy failed.'); });
+          return;
+        }
         const artifactButton = event.target.closest('[data-project-artifact]');
         if (artifactButton) {
           showProjectArtifact(artifactButton.dataset.projectArtifact).catch(function (error) { showToast(error.message); });
