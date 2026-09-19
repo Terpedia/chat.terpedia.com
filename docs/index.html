@@ -416,6 +416,10 @@
     }
     .empty-inner { width: min(650px, 100%); text-align: center; }
     .empty-inner img { width: 72px; height: 54px; object-fit: contain; }
+    .empty-inner .intro-video { display: block; width: min(300px, 80%); margin: 0 auto 4px; border-radius: 14px; box-shadow: 0 16px 40px rgba(0,0,0,.16); }
+    .susan-live { display: flex; justify-content: center; padding: 10px 16px 0; }
+    .susan-live[hidden] { display: none; }
+    .susan-live video { width: min(280px, 60%); border-radius: 14px; box-shadow: 0 16px 40px rgba(0,0,0,.16); background: #111; }
     .empty-inner h1 { margin: 14px 0 8px; color: var(--brand); font-family: "Playfair Display", Georgia, serif; font-size: 34px; font-weight: 400; line-height: 1.2; letter-spacing: 0; }
     .empty-inner p { margin: 0 auto 24px; max-width: 520px; color: var(--muted); font-size: 15px; line-height: 1.55; }
     .suggestions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; text-align: left; }
@@ -960,6 +964,10 @@
           <span class="connection-dot" id="connection-dot" title="Ready"></span>
         </div>
       </header>
+
+      <section class="susan-live" id="susan-live" hidden aria-label="Susan live avatar">
+        <video autoplay playsinline></video>
+      </section>
 
       <section class="transcript" id="transcript" aria-live="polite">
         <div class="messages" id="messages"></div>
@@ -1991,7 +1999,7 @@
       function renderMessages() {
         const conversation = activeConversation();
         if (!conversation || !conversation.messages.length) {
-          els.messages.innerHTML = '<div class="empty-state"><div class="empty-inner"><img src="assets/terpedia-mark.webp" alt=""><h1>How can Terpedia help?</h1>' +
+          els.messages.innerHTML = '<div class="empty-state"><div class="empty-inner"><video class="intro-video" src="susan-intro.mp4" controls playsinline preload="metadata" aria-label="Susan welcomes you to Terpedia"></video><h1>How can Terpedia help?</h1>' +
             '<p>Ask a specialist, review a PDF, or add up to three product photos for identification and comparison.</p><div class="suggestions">' +
             suggestion('Scan product photos', 'Identify labels, formats, and visible claims across several images.') +
             suggestion('Review a COA', 'Attach a PDF and check potency, contaminants, and specifications.') +
@@ -2217,6 +2225,54 @@
       }
       // Sends one chat turn. Asks the backend for server-sent events; older
       // backends answer with plain JSON and are handled the same way.
+      // Susan live avatar: LiveAvatar LITE session via the Terpedia proxy; the
+      // avatar video replaces the intro slot at the top of the chat and speaks
+      // each assistant reply.
+      var susan = { session: null, room: null, starting: null };
+      var SUSAN_URL = window.SUSAN_LIVE_URL || 'https://heygen-stream-proxy-715567218723.us-central1.run.app';
+      async function susanStart() {
+        if (susan.session || susan.starting) return susan.starting;
+        susan.starting = (async () => {
+          try {
+            const res = await fetch(SUSAN_URL + '/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+            const s = await res.json();
+            if (!s.session_id) throw new Error(s.message || 'session ' + res.status);
+            susan.session = s;
+            const { Room } = await import('https://esm.run/livekit-client@2');
+            const room = new Room({ adaptiveStream: true });
+            const slot = document.getElementById('susan-live');
+            room.on('trackSubscribed', function (track) {
+              if (track.kind === 'video' && slot) { slot.hidden = false; track.attach(slot.querySelector('video')); }
+              else if (track.kind === 'audio') track.attach();
+            });
+            await room.connect(s.livekit_url, s.livekit_client_token);
+            susan.room = room;
+          } catch (err) {
+            console.warn('susan live avatar unavailable', err);
+            susan.session = null;
+          } finally { susan.starting = null; }
+        })();
+        return susan.starting;
+      }
+      async function susanSpeak(text) {
+        if (!text) return;
+        try {
+          await susanStart();
+          if (!susan.session) return;
+          await fetch(SUSAN_URL + '/say', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session_id: susan.session.session_id, text }) });
+        } catch (err) { console.warn('susan speak failed', err); }
+      }
+      async function susanStop() {
+        const s = susan.session; susan.session = null;
+        try {
+          if (susan.room) { await susan.room.disconnect(); susan.room = null; }
+          if (s) await fetch(SUSAN_URL + '/stop', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session_id: s.session_id }) });
+        } catch (err) { /* ignore */ }
+        const slot = document.getElementById('susan-live');
+        if (slot) slot.hidden = true;
+      }
+      window.addEventListener('pagehide', susanStop);
+
       async function sendMessage(message, outgoingAttachments, handlers) {
         handlers = handlers || {};
         const apiBase = normalizeBase(els.apiBase.value);
@@ -2391,6 +2447,7 @@
             addMessage('assistant', participant.response || '', participant.name || agentNames[participant.agent] || participant.agent, [], false, participant.agent);
           });
           addMessage('assistant', payload.response || 'No response text returned.', summarizePayload(payload), chemistryAttachments(payload), false, payload.panel ? 'panel_moderator' : payload.agent, responseCitations(payload), payloadProjectArtifacts(payload), payloadProducts(payload), payloadDocking(payload));
+          susanSpeak(payload.response || '');
           if (payload.workspace_action) showWorkspacePreview(payload.workspace_action);
           setBusy(false, false);
           setStatus('Ready.', 'Last response returned from ' + (payload.agent_display_name || payload.agent || 'the backend') + '.');
